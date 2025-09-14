@@ -4,7 +4,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbyBduERwc5Sa65ozkGiC21HwPv463BFBaqVyj9u7iKewKBSTUNYz3thGQcA8f6zZVns/exec";
+  "https://script.google.com/macros/s/AKfycbxUOyv-lb5nrIv9dzOyvbxEN7R5qtFW28N4vEKsWz8HBaAmrGvwKLfp7Q2pSC6NIeqa/exec";
 
 interface Attendance {
   id: number;
@@ -34,6 +34,7 @@ interface KepsekData {
   name: string;
 }
 
+// Example updated interface (around line 38):
 interface FormState {
   date: string;
   time: string;
@@ -44,6 +45,7 @@ interface FormState {
   photoBase64: string | null;
   error: string;
   loading: boolean;
+  mapel?: string; // 👈 Make optional with ? if it can be missing sometimes
 }
 
 interface TeacherAttendanceFormState {
@@ -90,6 +92,10 @@ interface MonthlyRecap {
   persenHadir: string;
 }
 
+interface Mapel {
+  mapel: string;
+}
+
 interface ProcessedAttendance extends Attendance {
   processedPhoto?: string | null;
 }
@@ -106,6 +112,7 @@ const App: React.FC = () => {
     | "teacherForm"
     | "teacherData"
     | "monthlyRecap"
+    | "mapelData" // ✅ TAMBAHKAN INI
   >("form");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
@@ -123,6 +130,7 @@ const App: React.FC = () => {
     photoBase64: null,
     error: "",
     loading: false,
+    mapel: "", // 👈 Add this
   });
   const [teacherForm, setTeacherForm] = useState<TeacherAttendanceFormState>({
     date: "",
@@ -179,7 +187,8 @@ const App: React.FC = () => {
   const [studentAttendanceStatus, setStudentAttendanceStatus] = useState<{
     hasAttended: boolean;
     attendanceDate: string;
-  }>({ hasAttended: false, attendanceDate: "" });
+    attendedMapel?: string; // 👈 Tambahkan ini (opsional dengan ? agar bisa undefined jika tidak ada)
+  }>({ hasAttended: false, attendanceDate: "", attendedMapel: "" });
 
   const [kepsekData, setKepsekData] = useState<KepsekData[]>([]);
   const [teacherFormState, setTeacherFormState] =
@@ -189,7 +198,7 @@ const App: React.FC = () => {
       error: "",
       loading: false,
     });
-  const [filterKelas, setFilterKelas] = useState("Semua"); // Default "Semua" seperti gambar
+  const [filterKelas, setFilterKelas] = useState(""); // Default "Semua" seperti gambar
   const [summaryAbsensi, setSummaryAbsensi] = useState({
     hadir: 0,
     izin: 0,
@@ -211,9 +220,41 @@ const App: React.FC = () => {
   const [selectedClassRecap, setSelectedClassRecap] = useState<string>("Semua");
   const [selectedNameRecap, setSelectedNameRecap] = useState<string>("Semua");
   const [loadingRecap, setLoadingRecap] = useState(false);
-  const [mapelData, setMapelData] = useState([]); // <-- Tambahkan ini
-  const [selectedMapel, setSelectedMapel] = useState(""); // <-- Tambahkan ini
+  // ✅ TAMBAHKAN INI: State untuk manajemen data mapel
+  const [mapelData, setMapelData] = useState<Mapel[]>([]);
+  const [selectedMapel, setSelectedMapel] = useState("");
+  const [loadingMapel, setLoadingMapel] = useState(false);
+  const [editMapel, setEditMapel] = useState<Mapel | null>(null); // Untuk mode edit
+  const [deleteMapelId, setDeleteMapelId] = useState<string | null>(null); // Untuk konfirmasi hapus
+  const [showAddMapelModal, setShowAddMapelModal] = useState(false);
+  const [showEditMapelModal, setShowEditMapelModal] = useState(false);
+  const [showDeleteMapelModal, setShowDeleteMapelModal] = useState(false);
+  const [newMapelForm, setNewMapelForm] = useState({
+    mapel: "",
+    error: "",
+    loading: false,
+  });
   const [selectedMapelGuru, setSelectedMapelGuru] = useState("");
+
+  // ✅ PINDAHKAN FUNGSI INI KE LUAR useEffect — DI ATAS USEEFFECT, TAPI MASIH DI DALAM COMPONENT App
+  const fetchMapelData = async () => {
+    setLoadingMapel(true); // Pastikan state loadingMapel sudah ada di atas
+    try {
+      const response = await fetch(`${ENDPOINT}?action=getMapelData`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setMapelData(data.data);
+        } else {
+          console.error("Gagal ambil data mapel:", data.message);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching mapel data:", error);
+    } finally {
+      setLoadingMapel(false);
+    }
+  };
 
   useEffect(() => {
     const now = new Date();
@@ -239,28 +280,12 @@ const App: React.FC = () => {
       })
     );
 
-    // --- TAMBAHKAN INI ---
-    const fetchMapelData = async () => {
-      try {
-        const response = await fetch(`${ENDPOINT}?action=getMapelData`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setMapelData(data.data); // Simpan ke state
-          } else {
-            console.error("Gagal ambil data mapel:", data.message);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching mapel data:", error);
-      }
-    };
-
+    // ✅ Panggil fetchMapelData DI SINI — hanya sekali saat mount
     fetchMapelData();
 
     // Cek status absensi siswa jika sudah login sebagai siswa
     if (isLoggedIn && userRole === "Siswa" && form.nisn && selectedMapel) {
-      checkStudentAttendanceStatus(form.nisn, date, selectedMapel); // ← Tambahkan selectedMapel
+      checkStudentAttendanceStatus(form.nisn, date, selectedMapel);
     }
 
     // Fungsi untuk mengambil data
@@ -661,6 +686,7 @@ const App: React.FC = () => {
         }
       } else if (loginForm.role === "Guru") {
         setCurrentPage("teacherForm");
+        fetchMapelData();
       } else if (loginForm.role === "Kepala Sekolah") {
         // Tambahkan ini
         setCurrentPage("teacherData");
@@ -992,6 +1018,7 @@ const App: React.FC = () => {
           nisn: form.nisn,
           photo: form.photo,
           status: "Hadir",
+          mapel: form.mapel || "", // 👈 Tambahkan ini (gunakan form.mapel jika ada, atau string kosong sebagai default)
         };
         setAttendances((prev) => [...prev, newAttendance]);
         setAttendanceData((prev) => [...prev, newAttendance]);
@@ -1054,6 +1081,7 @@ const App: React.FC = () => {
             photoBase64: null,
             error: "",
             loading: false,
+            mapel: "", // 👈 Add this (or use prev.mapel to preserve it)
           })
         );
       } catch (altError) {
@@ -1192,6 +1220,7 @@ const App: React.FC = () => {
           nisn: data.nisn,
           status: data.status,
           photo: teacherPhoto || null,
+          mapel: data.mapel, // 👈 Tambahkan ini (ambil dari data.mapel, karena sudah ada di attendances)
         }));
         setAttendanceData((prev) => [...prev, ...newAttendances]);
 
@@ -1808,6 +1837,7 @@ const App: React.FC = () => {
       | "teacherForm"
       | "teacherData"
       | "monthlyRecap"
+      | "mapelData" // 👈 TAMBAHKAN INI!
   ) => {
     setCurrentPage(page);
     if (page === "data") {
@@ -1828,6 +1858,7 @@ const App: React.FC = () => {
       | "teacherForm"
       | "teacherData"
       | "monthlyRecap"
+      | "mapelData" // ✅ TAMBAHKAN INI
   ) => {
     handlePageChange(page);
     setIsMenuOpen(false);
@@ -1977,9 +2008,13 @@ const App: React.FC = () => {
   const getStatusByDateAndNISN = (nisn: string, date: string) => {
     // Format tanggal: DD/MM/YYYY
     const formattedDate = date.split("-").reverse().join("/"); // YYYY-MM-DD → DD/MM/YYYY
-    const record = attendanceData.find(
-      (att) => att.nisn === nisn && att.date === formattedDate
-    );
+    const record = attendanceData.find((att) => {
+      return (
+        att.nisn === nisn &&
+        att.date === formattedDate &&
+        att.mapel === selectedMapelGuru // 👈 TAMBAHKAN INI: Filter berdasarkan mapel yang dipilih
+      );
+    });
     return record ? record.status : null;
   };
 
@@ -2342,7 +2377,10 @@ const App: React.FC = () => {
           </label>
           <select
             value={selectedMapelGuru}
-            onChange={(e) => setSelectedMapelGuru(e.target.value)}
+            onChange={(e) => {
+              setSelectedMapelGuru(e.target.value);
+              setTempAbsensi({}); // 👈 TAMBAHKAN INI: Reset pilihan sementara saat mapel berubah
+            }}
             className="w-full p-2 border border-gray-300 rounded-lg"
             disabled={mapelData.length === 0}
           >
@@ -2382,98 +2420,102 @@ const App: React.FC = () => {
         </div>
         {/* Daftar Siswa */}
         <div className="overflow-x-auto">
-          {filteredStudents.map((student) => {
-            const isAlreadyAttended = !!absensiHariIni[student.nisn];
-            const tempStatus = tempAbsensi[student.nisn];
-
-            return (
-              <div
-                key={student.nisn}
-                className="flex justify-between items-center border-b py-2"
-              >
-                <div>
-                  <p className="font-semibold">{student.name}</p>
-                  <p className="text-sm">
-                    Kelas {student.class} - NISN: {student.nisn}
-                  </p>
-                  {tempStatus && (
-                    <p className="text-xs text-blue-600">
-                      Status dipilih: {tempStatus}
+          {filterKelas !== "" && filteredStudents.length > 0 ? (
+            filteredStudents.map((student) => {
+              const isAlreadyAttended = !!absensiHariIni[student.nisn];
+              const tempStatus = tempAbsensi[student.nisn];
+              return (
+                <div
+                  key={student.nisn}
+                  className="flex justify-between items-center border-b py-2"
+                >
+                  <div>
+                    <p className="font-semibold">{student.name}</p>
+                    <p className="text-sm">
+                      Kelas {student.class} - NISN: {student.nisn}
                     </p>
-                  )}
+                    {tempStatus && (
+                      <p className="text-xs text-blue-600">
+                        Status dipilih: {tempStatus}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleSelectStatus(student, "Hadir")}
+                      disabled={!!absensiHariIni[student.nisn]}
+                      className={`px-3 py-1 rounded-lg ${
+                        tempStatus === "Hadir"
+                          ? "bg-green-600 text-white"
+                          : getStatusByDateAndNISN(
+                              student.nisn,
+                              teacherForm.date
+                            ) === "Hadir"
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      } transition duration-200`}
+                    >
+                      Hadir
+                    </button>
+                    <button
+                      onClick={() => handleSelectStatus(student, "Izin")}
+                      disabled={!!absensiHariIni[student.nisn]}
+                      className={`px-3 py-1 rounded-lg ${
+                        tempStatus === "Izin"
+                          ? "bg-yellow-600 text-white"
+                          : getStatusByDateAndNISN(
+                              student.nisn,
+                              teacherForm.date
+                            ) === "Izin"
+                          ? "bg-yellow-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      } transition duration-200`}
+                    >
+                      Izin
+                    </button>
+                    <button
+                      onClick={() => handleSelectStatus(student, "Sakit")}
+                      disabled={!!absensiHariIni[student.nisn]}
+                      className={`px-3 py-1 rounded-lg ${
+                        tempStatus === "Sakit"
+                          ? "bg-purple-600 text-white"
+                          : getStatusByDateAndNISN(
+                              student.nisn,
+                              teacherForm.date
+                            ) === "Sakit"
+                          ? "bg-purple-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      } transition duration-200`}
+                    >
+                      Sakit
+                    </button>
+                    <button
+                      onClick={() => handleSelectStatus(student, "Alpha")}
+                      disabled={!!absensiHariIni[student.nisn]}
+                      className={`px-3 py-1 rounded-lg ${
+                        tempStatus === "Alpha"
+                          ? "bg-red-600 text-white"
+                          : getStatusByDateAndNISN(
+                              student.nisn,
+                              teacherForm.date
+                            ) === "Alpha"
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      } transition duration-200`}
+                    >
+                      Alpha
+                    </button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleSelectStatus(student, "Hadir")}
-                    disabled={!!absensiHariIni[student.nisn]} // Nonaktifkan jika sudah absen permanen
-                    className={`px-3 py-1 rounded-lg ${
-                      tempStatus === "Hadir"
-                        ? "bg-green-600 text-white"
-                        : getStatusByDateAndNISN(
-                            student.nisn,
-                            teacherForm.date
-                          ) === "Hadir"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    } transition duration-200`}
-                  >
-                    Hadir
-                  </button>
-
-                  <button
-                    onClick={() => handleSelectStatus(student, "Izin")}
-                    disabled={!!absensiHariIni[student.nisn]}
-                    className={`px-3 py-1 rounded-lg ${
-                      tempStatus === "Izin"
-                        ? "bg-yellow-600 text-white"
-                        : getStatusByDateAndNISN(
-                            student.nisn,
-                            teacherForm.date
-                          ) === "Izin"
-                        ? "bg-yellow-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    } transition duration-200`}
-                  >
-                    Izin
-                  </button>
-
-                  <button
-                    onClick={() => handleSelectStatus(student, "Sakit")}
-                    disabled={!!absensiHariIni[student.nisn]}
-                    className={`px-3 py-1 rounded-lg ${
-                      tempStatus === "Sakit"
-                        ? "bg-purple-600 text-white"
-                        : getStatusByDateAndNISN(
-                            student.nisn,
-                            teacherForm.date
-                          ) === "Sakit"
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    } transition duration-200`}
-                  >
-                    Sakit
-                  </button>
-
-                  <button
-                    onClick={() => handleSelectStatus(student, "Alpha")}
-                    disabled={!!absensiHariIni[student.nisn]}
-                    className={`px-3 py-1 rounded-lg ${
-                      tempStatus === "Alpha"
-                        ? "bg-red-600 text-white"
-                        : getStatusByDateAndNISN(
-                            student.nisn,
-                            teacherForm.date
-                          ) === "Alpha"
-                        ? "bg-red-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    } transition duration-200`}
-                  >
-                    Alpha
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          ) : (
+            <div className="p-6 text-center text-gray-500 italic">
+              {filterKelas === ""
+                ? "Silakan pilih kelas terlebih dahulu untuk melihat daftar siswa."
+                : "Tidak ada siswa di kelas ini."}
+            </div>
+          )}
         </div>
         {/* Tambahkan input foto dan tombol Kirim Absen di bagian bawah */}
         {Object.keys(tempAbsensi).length > 0 && (
@@ -3397,7 +3439,7 @@ const App: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-2">
-                          {attendance.mapel || "Belum dipilih"}
+                          {attendance?.mapel || "Belum dipilih"}
                         </td>
                       </tr>
                     ))
@@ -3922,6 +3964,364 @@ const App: React.FC = () => {
     );
   };
 
+  const renderMapelDataPage = () => {
+    const handleAddMapel = async () => {
+      if (!newMapelForm.mapel || newMapelForm.mapel.trim() === "") {
+        setNewMapelForm({
+          ...newMapelForm,
+          error: "Nama mata pelajaran wajib diisi",
+        });
+        return;
+      }
+
+      // Cek duplikat lokal
+      if (mapelData.some((m) => m.mapel === newMapelForm.mapel.trim())) {
+        setNewMapelForm({
+          ...newMapelForm,
+          error: "Mata pelajaran sudah ada",
+        });
+        return;
+      }
+
+      setNewMapelForm({ ...newMapelForm, loading: true, error: "" });
+
+      try {
+        const response = await fetch(ENDPOINT, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "addMapel", // ❌ TUNGGU! Ini belum ada di Apps Script!
+            mapel: newMapelForm.mapel.trim(),
+          }),
+        });
+
+        // JANGAN LUPA: Di Apps Script, kita belum punya fungsi addMapel!
+        // Kita akan buatnya di Langkah 6.
+        if (response.type === "opaque") {
+          setMapelData([...mapelData, { mapel: newMapelForm.mapel.trim() }]);
+          setNewMapelForm({ mapel: "", error: "", loading: false });
+          setShowAddMapelModal(false);
+          alert("Mata pelajaran berhasil ditambahkan!");
+        } else {
+          throw new Error("Unexpected response type");
+        }
+      } catch (error: any) {
+        console.error("Error adding mapel:", error);
+        setNewMapelForm({
+          ...newMapelForm,
+          error: `Gagal menambahkan mata pelajaran: ${error.message}`,
+          loading: false,
+        });
+      }
+    };
+
+    const handleEditMapel = async () => {
+      if (
+        !editMapel ||
+        !newMapelForm.mapel ||
+        newMapelForm.mapel.trim() === ""
+      ) {
+        setNewMapelForm({
+          ...newMapelForm,
+          error: "Nama mata pelajaran wajib diisi",
+        });
+        return;
+      }
+
+      // Cek duplikat (kecuali dirinya sendiri)
+      if (
+        mapelData.some(
+          (m) =>
+            m.mapel === newMapelForm.mapel.trim() && m.mapel !== editMapel.mapel
+        )
+      ) {
+        setNewMapelForm({
+          ...newMapelForm,
+          error: "Mata pelajaran sudah ada",
+        });
+        return;
+      }
+
+      setNewMapelForm({ ...newMapelForm, loading: true, error: "" });
+
+      try {
+        const response = await fetch(ENDPOINT, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "editMapel", // ❌ BELUM ADA di Apps Script!
+            originalMapel: editMapel.mapel,
+            mapel: newMapelForm.mapel.trim(),
+          }),
+        });
+
+        if (response.type === "opaque") {
+          setMapelData(
+            mapelData.map((m) =>
+              m.mapel === editMapel.mapel
+                ? { mapel: newMapelForm.mapel.trim() }
+                : m
+            )
+          );
+          setNewMapelForm({ mapel: "", error: "", loading: false });
+          setShowEditMapelModal(false);
+          setEditMapel(null);
+          alert("Mata pelajaran berhasil diperbarui!");
+        } else {
+          throw new Error("Unexpected response type");
+        }
+      } catch (error: any) {
+        console.error("Error editing mapel:", error);
+        setNewMapelForm({
+          ...newMapelForm,
+          error: `Gagal memperbarui mata pelajaran: ${error.message}`,
+          loading: false,
+        });
+      }
+    };
+
+    const handleDeleteMapel = async () => {
+      if (!deleteMapelId) return;
+
+      setNewMapelForm({ ...newMapelForm, loading: true, error: "" });
+
+      try {
+        const response = await fetch(ENDPOINT, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "deleteMapel", // ❌ BELUM ADA di Apps Script!
+            mapel: deleteMapelId,
+          }),
+        });
+
+        if (response.type === "opaque") {
+          setMapelData(mapelData.filter((m) => m.mapel !== deleteMapelId));
+          setShowDeleteMapelModal(false);
+          setDeleteMapelId(null);
+          alert("Mata pelajaran berhasil dihapus!");
+        } else {
+          throw new Error("Unexpected response type");
+        }
+      } catch (error: any) {
+        console.error("Error deleting mapel:", error);
+        setNewMapelForm({
+          ...newMapelForm,
+          error: `Gagal menghapus mata pelajaran: ${error.message}`,
+          loading: false,
+        });
+      }
+    };
+    return (
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Data Mata Pelajaran
+          </h2>
+          <button
+            onClick={() => {
+              setNewMapelForm({ mapel: "", error: "", loading: false });
+              setShowAddMapelModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
+          >
+            Tambah Mapel
+          </button>
+        </div>
+
+        {loadingMapel ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Memuat data...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-700">
+              <thead className="text-xs uppercase bg-gray-200">
+                <tr>
+                  <th className="px-4 py-2">Mata Pelajaran</th>
+                  <th className="px-4 py-2">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mapelData.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={2}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Tidak ada data mata pelajaran
+                    </td>
+                  </tr>
+                ) : (
+                  mapelData.map((mapel, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-2">{mapel.mapel}</td>
+                      <td className="px-4 py-2 flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditMapel(mapel);
+                            setNewMapelForm({
+                              mapel: mapel.mapel,
+                              error: "",
+                              loading: false,
+                            });
+                            setShowEditMapelModal(true);
+                          }}
+                          className="bg-yellow-600 text-white px-3 py-1 rounded-lg hover:bg-yellow-700 transition duration-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteMapelId(mapel.mapel); // Gunakan mapel sebagai ID karena tidak ada field id
+                            setShowDeleteMapelModal(true);
+                          }}
+                          className="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition duration-200"
+                        >
+                          Hapus
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Modal Tambah Mapel */}
+        {showAddMapelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">
+                Tambah Mata Pelajaran
+              </h2>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={newMapelForm.mapel}
+                  onChange={(e) =>
+                    setNewMapelForm({
+                      ...newMapelForm,
+                      mapel: e.target.value,
+                      error: "",
+                    })
+                  }
+                  placeholder="Nama Mata Pelajaran"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newMapelForm.error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
+                    {newMapelForm.error}
+                  </div>
+                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleAddMapel}
+                    disabled={newMapelForm.loading}
+                    className="flex-1 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+                  >
+                    {newMapelForm.loading ? "⏳ Menyimpan..." : "Simpan"}
+                  </button>
+                  <button
+                    onClick={() => setShowAddMapelModal(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Edit Mapel */}
+        {showEditMapelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">
+                Edit Mata Pelajaran
+              </h2>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  value={newMapelForm.mapel}
+                  onChange={(e) =>
+                    setNewMapelForm({
+                      ...newMapelForm,
+                      mapel: e.target.value,
+                      error: "",
+                    })
+                  }
+                  placeholder="Nama Mata Pelajaran Baru"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newMapelForm.error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
+                    {newMapelForm.error}
+                  </div>
+                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleEditMapel}
+                    disabled={newMapelForm.loading}
+                    className="flex-1 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+                  >
+                    {newMapelForm.loading ? "⏳ Memperbarui..." : "Perbarui"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditMapelModal(false);
+                      setEditMapel(null);
+                    }}
+                    className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Konfirmasi Hapus Mapel */}
+        {showDeleteMapelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">Konfirmasi Hapus</h2>
+              <p className="mb-4">
+                Apakah Anda yakin ingin menghapus mata pelajaran "
+                {deleteMapelId}"? Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleDeleteMapel}
+                  disabled={newMapelForm.loading}
+                  className="flex-1 bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50"
+                >
+                  {newMapelForm.loading ? "⏳ Menghapus..." : "Hapus"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteMapelModal(false);
+                    setDeleteMapelId(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderTeacherDataPage = () => (
     <div className="bg-white shadow-lg rounded-lg p-6">
       <div className="mb-4 flex justify-between items-center">
@@ -4155,14 +4555,11 @@ const App: React.FC = () => {
                       onClick={toggleMenu}
                       className="px-4 py-2 rounded-md transition duration-200 text-gray-600 hover:bg-gray-100 flex items-center"
                     >
-                      ≡ Menu {/* Atau gunakan emoji 📂 atau ikon SVG */}
+                      ≡ Menu
                     </button>
-
                     {/* Dropdown Menu */}
                     {isMenuOpen && (
                       <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-lg p-2 z-10 w-48">
-                        {" "}
-                        {/* Floating dropdown */}
                         <button
                           onClick={() => handleMenuItemClick("teacherForm")}
                           className={`block w-full text-left px-4 py-2 rounded-md transition duration-200 ${
@@ -4202,6 +4599,17 @@ const App: React.FC = () => {
                           }`}
                         >
                           📅 Rekap Bulanan
+                        </button>
+                        {/* ✅ TAMBAHKAN INI: Tombol Data Mapel */}
+                        <button
+                          onClick={() => handleMenuItemClick("mapelData")}
+                          className={`block w-full text-left px-4 py-2 rounded-md transition duration-200 ${
+                            currentPage === "mapelData"
+                              ? "bg-blue-600 text-white"
+                              : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          📚 Data Mata Pelajaran
                         </button>
                       </div>
                     )}
@@ -4257,6 +4665,8 @@ const App: React.FC = () => {
               ? renderTeacherDataPage()
               : currentPage === "monthlyRecap" && userRole === "Guru"
               ? renderMonthlyRecapPage()
+              : currentPage === "mapelData" && userRole === "Guru" // ✅ TAMBAHKAN INI
+              ? renderMapelDataPage()
               : null}
           </>
         )}
