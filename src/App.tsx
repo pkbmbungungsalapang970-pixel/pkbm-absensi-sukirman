@@ -4,7 +4,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbwyft4A_-YD-hMhgvPaWnabtuUcFqsuJvL1geFY4eE6p_LUYnQ2fWKKri_it88ibyLi/exec";
+  "https://script.google.com/macros/s/AKfycbyBduERwc5Sa65ozkGiC21HwPv463BFBaqVyj9u7iKewKBSTUNYz3thGQcA8f6zZVns/exec";
 
 interface Attendance {
   id: number;
@@ -15,6 +15,7 @@ interface Attendance {
   nisn: string;
   photo: string | null;
   status: string;
+  mapel: string;
 }
 
 interface StudentData {
@@ -150,6 +151,8 @@ const App: React.FC = () => {
     error: "",
     loading: false,
   });
+  const [selectedClassForLogin, setSelectedClassForLogin] =
+    useState<string>("");
   const [editStudent, setEditStudent] = useState<StudentData | null>(null);
   const [deleteStudentNisn, setDeleteStudentNisn] = useState<string | null>(
     null
@@ -208,6 +211,9 @@ const App: React.FC = () => {
   const [selectedClassRecap, setSelectedClassRecap] = useState<string>("Semua");
   const [selectedNameRecap, setSelectedNameRecap] = useState<string>("Semua");
   const [loadingRecap, setLoadingRecap] = useState(false);
+  const [mapelData, setMapelData] = useState([]); // <-- Tambahkan ini
+  const [selectedMapel, setSelectedMapel] = useState(""); // <-- Tambahkan ini
+  const [selectedMapelGuru, setSelectedMapelGuru] = useState("");
 
   useEffect(() => {
     const now = new Date();
@@ -233,9 +239,28 @@ const App: React.FC = () => {
       })
     );
 
+    // --- TAMBAHKAN INI ---
+    const fetchMapelData = async () => {
+      try {
+        const response = await fetch(`${ENDPOINT}?action=getMapelData`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setMapelData(data.data); // Simpan ke state
+          } else {
+            console.error("Gagal ambil data mapel:", data.message);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching mapel data:", error);
+      }
+    };
+
+    fetchMapelData();
+
     // Cek status absensi siswa jika sudah login sebagai siswa
-    if (isLoggedIn && userRole === "Siswa" && form.nisn) {
-      checkStudentAttendanceStatus(form.nisn, date);
+    if (isLoggedIn && userRole === "Siswa" && form.nisn && selectedMapel) {
+      checkStudentAttendanceStatus(form.nisn, date, selectedMapel); // ← Tambahkan selectedMapel
     }
 
     // Fungsi untuk mengambil data
@@ -339,7 +364,14 @@ const App: React.FC = () => {
       fetchAttendanceData(false);
       calculateSummary();
     }
-  }, [currentPage, userRole, attendanceData, teacherForm.date]);
+  }, [
+    currentPage,
+    userRole,
+    attendanceData,
+    teacherForm.date,
+    selectedMapelGuru,
+    filterKelas,
+  ]); // 👈 TAMBAHKAN dependensi selectedMapelGuru dan filterKelas
 
   const fetchAttendanceData = async (showLoading = true) => {
     if (showLoading) {
@@ -393,7 +425,11 @@ const App: React.FC = () => {
     setSelectedNameRecap("Semua"); // Reset nama ke "Semua" saat kelas berubah
   }, [selectedClassRecap]);
 
-  const checkStudentAttendanceStatus = async (nisn: string, date: string) => {
+  const checkStudentAttendanceStatus = async (
+    nisn: string,
+    date: string,
+    mapel: string
+  ) => {
     try {
       const response = await fetch(
         `${ENDPOINT}?action=getAttendanceData&_t=${Date.now()}`
@@ -401,19 +437,27 @@ const App: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          // Cek apakah siswa dengan NISN tertentu sudah absen di tanggal tertentu
+          // Cek apakah siswa sudah absen di tanggal & mapel yang sama
           const existingAttendance = data.data.find(
             (attendance: Attendance) => {
+              // Konversi format tanggal dari DD/MM/YYYY ke YYYY-MM-DD
               const attendanceDate = attendance.date.includes("/")
                 ? attendance.date.split("/").reverse().join("-")
                 : attendance.date;
-              return attendance.nisn === nisn && attendanceDate === date;
+
+              // ✅ Tambahkan cek mapel!
+              return (
+                attendance.nisn === nisn &&
+                attendanceDate === date &&
+                attendance.mapel === mapel // 👈 INI YANG BARU!
+              );
             }
           );
 
           setStudentAttendanceStatus({
             hasAttended: !!existingAttendance,
             attendanceDate: existingAttendance?.date || "",
+            attendedMapel: existingAttendance?.mapel || "", // Simpan mapel yang sudah diabsen
           });
         }
       }
@@ -605,10 +649,15 @@ const App: React.FC = () => {
             nisn: selectedStudent.nisn,
             class: selectedStudent.class,
             error: "",
+            mapel: selectedMapel, // 👈 Ini penting — simpan mapel ke form
           }));
 
-          // Cek status absensi siswa
-          checkStudentAttendanceStatus(selectedStudent.nisn, currentDate);
+          // 👇 Tambahkan selectedMapel sebagai parameter ke-3
+          checkStudentAttendanceStatus(
+            selectedStudent.nisn,
+            currentDate,
+            selectedMapel
+          );
         }
       } else if (loginForm.role === "Guru") {
         setCurrentPage("teacherForm");
@@ -927,6 +976,7 @@ const App: React.FC = () => {
           nisn: form.nisn,
           photo: form.photoBase64,
           status: "Hadir",
+          mapel: form.mapel, // <-- Tambahkan ini
         }),
       });
 
@@ -1106,6 +1156,7 @@ const App: React.FC = () => {
           nisn: student.nisn,
           status: status,
           photo: null,
+          mapel: selectedMapelGuru || "", // 👈 TAMBAHKAN INI: Sertakan mapel yang dipilih, fallback kosong jika tidak pilih
         });
       }
     });
@@ -1167,12 +1218,26 @@ const App: React.FC = () => {
 
   // Fungsi untuk hitung summary berdasarkan absensi hari ini
   const calculateSummary = () => {
-    const selectedDate = teacherForm.date; // Gunakan tanggal yang dipilih guru
+    const selectedDate = teacherForm.date;
     const absensiToday = attendanceData.filter((att) => {
       const attDate = att.date.includes("/")
         ? att.date.split("/").reverse().join("-")
         : att.date;
-      return attDate === selectedDate;
+
+      let matchMapel = true;
+      let matchKelas = true;
+
+      // Filter mapel jika dipilih
+      if (selectedMapelGuru) {
+        matchMapel = att.mapel === selectedMapelGuru;
+      }
+
+      // Filter kelas jika dipilih (skip jika filterKelas kosong)
+      if (filterKelas) {
+        matchKelas = att.class === filterKelas;
+      }
+
+      return attDate === selectedDate && matchMapel && matchKelas;
     });
 
     const summary = {
@@ -1184,7 +1249,7 @@ const App: React.FC = () => {
 
     setSummaryAbsensi(summary);
 
-    // Update status per siswa
+    // Update status per siswa (sekarang juga filter per mapel dan kelas)
     const statusMap: { [key: string]: string } = {};
     absensiToday.forEach((att) => {
       statusMap[att.nisn] = att.status;
@@ -1935,11 +2000,55 @@ const App: React.FC = () => {
           {/* Tambahkan ini */}
         </select>
 
+        {/* ✅ BAGIAN BARU: Dropdown Kelas (Hanya muncul jika role adalah Siswa) */}
+        {loginForm.role === "Siswa" && (
+          <select
+            value={selectedClassForLogin}
+            onChange={(e) => {
+              setSelectedClassForLogin(e.target.value);
+              // Reset nama saat kelas berubah
+              setLoginForm((prev) => ({ ...prev, name: "", error: "" }));
+            }}
+            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={!loginForm.role}
+          >
+            <option value="">Pilih Kelas</option>
+            {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
+              <option key={kelas} value={kelas}>
+                {kelas}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {loginForm.role === "Siswa" && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1"></label>
+            <select
+              value={selectedMapel}
+              onChange={(e) => setSelectedMapel(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!loginForm.role || !selectedClassForLogin} // Hanya aktif jika kelas dipilih
+            >
+              <option value="">Pilih Mata Pelajaran</option>
+              {mapelData.map((mapel, index) => (
+                <option key={index} value={mapel.mapel}>
+                  {mapel.mapel}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* ✅ MODIFIKASI: Dropdown Nama - Hanya tampilkan siswa sesuai kelas yang dipilih */}
         <select
           name="name"
           value={loginForm.name}
           onChange={handleLoginInputChange}
-          disabled={!loginForm.role}
+          disabled={
+            !loginForm.role ||
+            (loginForm.role === "Siswa" && !selectedClassForLogin)
+          }
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         >
           <option value="">Pilih Nama</option>
@@ -1950,11 +2059,17 @@ const App: React.FC = () => {
                 </option>
               ))
             : loginForm.role === "Siswa"
-            ? studentData.map((item) => (
-                <option key={item.nisn} value={item.name}>
-                  {item.name}
-                </option>
-              ))
+            ? studentData
+                .filter(
+                  (student) =>
+                    selectedClassForLogin === "" ||
+                    student.class === selectedClassForLogin
+                ) // ✅ FILTER BERDASARKAN selectedClassForLogin
+                .map((item) => (
+                  <option key={item.nisn} value={item.name}>
+                    {item.name}
+                  </option>
+                ))
             : loginForm.role === "Kepala Sekolah" // Tambahkan ini
             ? kepsekData.map((item) => (
                 <option key={item.nomorinduk} value={item.name}>
@@ -1978,19 +2093,24 @@ const App: React.FC = () => {
               ? "Nomor Induk"
               : "Nomor Induk"
           }
-          disabled={!loginForm.role}
+          disabled={
+            !loginForm.role ||
+            (loginForm.role === "Siswa" && !selectedClassForLogin)
+          }
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         />
-
         {loginForm.error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
             {loginForm.error}
           </div>
         )}
-
         <button
           onClick={handleLogin}
-          disabled={loginForm.loading || !loginForm.role}
+          disabled={
+            loginForm.loading ||
+            !loginForm.role ||
+            (loginForm.role === "Siswa" && !selectedClassForLogin)
+          }
           className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
         >
           {loginForm.loading ? "⏳ Memproses..." : "Login"}
@@ -2019,6 +2139,14 @@ const App: React.FC = () => {
               className="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
             />
           </div>
+
+          <input
+            type="text"
+            name="mapel"
+            value={form.mapel || "Belum dipilih"}
+            readOnly
+            className="w-full p-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+          />
 
           <input
             type="text"
@@ -2133,6 +2261,8 @@ const App: React.FC = () => {
               <th className="px-4 py-2">Nama</th>
               <th className="px-4 py-2">NISN</th>
               <th className="px-4 py-2">Foto</th>
+              <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2">Mapel</th> {/* 👈 BARU! */}
             </tr>
           </thead>
           <tbody>
@@ -2195,7 +2325,8 @@ const App: React.FC = () => {
             onChange={(e) => setFilterKelas(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-lg"
           >
-            <option>Semua</option>
+            <option value="">Pilih Kelas</option>{" "}
+            {/* 👈 UBAH: Ganti "Semua" jadi kosong/prompt */}
             {/* Daftar kelas unik dari studentData */}
             {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
               <option key={kelas} value={kelas}>
@@ -2204,9 +2335,29 @@ const App: React.FC = () => {
             ))}
           </select>
         </div>
+        {/* 👈 TAMBAHKAN INI: Dropdown Filter Mapel */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Filter Mata Pelajaran
+          </label>
+          <select
+            value={selectedMapelGuru}
+            onChange={(e) => setSelectedMapelGuru(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-lg"
+            disabled={mapelData.length === 0}
+          >
+            <option value="">Pilih Mata Pelajaran</option>
+            {mapelData.map((mapel, index) => (
+              <option key={index} value={mapel.mapel}>
+                {mapel.mapel}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="mb-4 text-center">
           <span>
-            Menampilkan: {filterKelas} - Tanggal:{" "}
+            Menampilkan: {filterKelas || "Semua Kelas"} - Mapel:{" "}
+            {selectedMapelGuru || "Semua Mapel"} - Tanggal:{" "}
             {teacherForm.date.replace(/-/g, "/")} - Total Siswa: {totalSiswa}
           </span>
         </div>
@@ -2511,6 +2662,7 @@ const App: React.FC = () => {
           (attendance: Attendance) => {
             let matchMonth = true;
             let matchDate = true;
+            let matchMapel = true;
 
             // Filter berdasarkan bulan
             if (selectedMonth) {
@@ -2520,7 +2672,6 @@ const App: React.FC = () => {
 
             // Filter berdasarkan tanggal
             if (selectedDate) {
-              // Konversi tanggal dari format DD/MM/YYYY ke YYYY-MM-DD untuk perbandingan
               const [day, month, year] = attendance.date.split("/");
               const attendanceDate = `${year}-${month.padStart(
                 2,
@@ -2529,7 +2680,12 @@ const App: React.FC = () => {
               matchDate = attendanceDate === selectedDate;
             }
 
-            return matchMonth && matchDate;
+            // ✅ TAMBAHAN BARU: Filter berdasarkan mata pelajaran
+            if (selectedMapel) {
+              matchMapel = attendance.mapel === selectedMapel;
+            }
+
+            return matchMonth && matchDate && matchMapel; // Semua harus true
           }
         );
 
@@ -2761,11 +2917,9 @@ const App: React.FC = () => {
         const tableData: (string | number)[][] = processedData.map(
           (attendance: ProcessedAttendance) => {
             let photoStatus = "Tidak ada foto";
-
             if (attendance.processedPhoto) {
               photoStatus = "Ada foto";
             }
-
             return [
               attendance.date,
               attendance.time,
@@ -2774,13 +2928,25 @@ const App: React.FC = () => {
               attendance.nisn,
               photoStatus,
               attendance.status,
+              attendance.mapel || "Belum dipilih", // 👈 TAMBAHKAN INI
             ];
           }
         );
 
         // Create table using autoTable with custom didDrawCell for photos
         doc.autoTable({
-          head: [["Tanggal", "Jam", "Kelas", "Nama", "NISN", "Foto", "Status"]],
+          head: [
+            [
+              "Tanggal",
+              "Jam",
+              "Kelas",
+              "Nama",
+              "NISN",
+              "Foto",
+              "Status",
+              "Mapel",
+            ],
+          ],
           body: tableData,
           startY: yPosition + 5,
           styles: {
@@ -2804,6 +2970,7 @@ const App: React.FC = () => {
             4: { cellWidth: 25 }, // NISN
             5: { cellWidth: 30 }, // Foto
             6: { cellWidth: 20 }, // Status
+            7: { cellWidth: 25 }, // 👈 Mapel
           },
           didDrawCell: (data: any) => {
             // Add photo if available - HANYA untuk baris data, BUKAN header
@@ -2994,7 +3161,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Filter Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Filter per Bulan
@@ -3028,7 +3195,6 @@ const App: React.FC = () => {
                 })}
               </select>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Filter per Tanggal
@@ -3039,6 +3205,25 @@ const App: React.FC = () => {
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+            {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER MATA PELAJARAN */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter Mata Pelajaran
+              </label>
+              <select
+                value={selectedMapel} // ← Menggunakan state yang sama
+                onChange={(e) => setSelectedMapel(e.target.value)} // ← ✅ INI YANG HILANG DAN HARUS DITAMBAHKAN!
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={mapelData.length === 0}
+              >
+                <option value="">Semua Mata Pelajaran</option>
+                {mapelData.map((mapel, index) => (
+                  <option key={index} value={mapel.mapel}>
+                    {mapel.mapel}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -3074,15 +3259,18 @@ const App: React.FC = () => {
                   <th className="px-4 py-2">NISN</th>
                   <th className="px-4 py-2">Foto</th>
                   <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Mapel</th> {/* 👈 TAMBAHKAN INI */}
                 </tr>
               </thead>
               <tbody>
                 {attendanceData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-gray-500"
                     >
+                      {" "}
+                      {/* Ubah colSpan jadi 8 karena ada kolom mapel */}
                       Tidak ada data absensi
                     </td>
                   </tr>
@@ -3091,6 +3279,7 @@ const App: React.FC = () => {
                     .filter((attendance: Attendance) => {
                       let matchMonth = true;
                       let matchDate = true;
+                      let matchMapel = true; // 👈 TAMBAHKAN INI: Variabel untuk filter mapel
 
                       if (selectedMonth) {
                         const [day, month, year] = attendance.date.split("/");
@@ -3106,7 +3295,12 @@ const App: React.FC = () => {
                         matchDate = attendanceDate === selectedDate;
                       }
 
-                      return matchMonth && matchDate;
+                      // 👈 TAMBAHKAN INI: Filter berdasarkan mapel
+                      if (selectedMapel) {
+                        matchMapel = attendance.mapel === selectedMapel; // Bandingkan dengan attendance.mapel
+                      }
+
+                      return matchMonth && matchDate && matchMapel; // 👈 TAMBAHKAN matchMapel ke kondisi return
                     })
                     .map((attendance: Attendance, index: number) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
@@ -3201,6 +3395,9 @@ const App: React.FC = () => {
                           >
                             {attendance.status}
                           </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          {attendance.mapel || "Belum dipilih"}
                         </td>
                       </tr>
                     ))
