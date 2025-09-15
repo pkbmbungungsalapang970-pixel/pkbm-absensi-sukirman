@@ -2153,7 +2153,7 @@ const App: React.FC = () => {
         {window.location.origin === "https://app-siswa-pkbm.netlify.app" && (
           <div className="mt-4">
             <a
-              href="https://2jd4cx.csb.app/"
+              href="https://pkbm-absensi-sukirman.netlify.app/"
               className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
             >
               Kunjungi Halaman Eksternal
