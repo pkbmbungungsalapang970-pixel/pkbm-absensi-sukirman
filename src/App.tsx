@@ -2150,6 +2150,16 @@ const App: React.FC = () => {
         >
           {loginForm.loading ? "⏳ Memproses..." : "Login"}
         </button>
+        <div className="mt-4">
+          <a
+            href="https://2jd4cx.csb.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
+          >
+            Kunjungi Halaman Eksternal
+          </a>
+        </div>
       </div>
     </div>
   );
