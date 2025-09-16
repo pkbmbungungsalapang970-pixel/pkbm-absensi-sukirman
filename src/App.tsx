@@ -2150,7 +2150,6 @@ const App: React.FC = () => {
         >
           {loginForm.loading ? "⏳ Memproses..." : "Login"}
         </button>
-        {window.location.origin === "https://app-siswa-pkbm.netlify.app" && (
           <div className="mt-4">
             <a
               href="https://pkbm-absensi-sukirman.netlify.app"
