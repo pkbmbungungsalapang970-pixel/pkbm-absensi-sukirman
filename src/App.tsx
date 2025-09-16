@@ -349,21 +349,17 @@ const App: React.FC = () => {
       );
     }, 1000);
 
-    // ✅ Cek referrer
-  const referrer = document.referrer;
-  if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
-    setIsFromPKBM(true);
-    
-    if (loginForm.role === "") {
-      setLoginForm(prev => ({ ...prev, role: "Siswa" }));
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const mapelQuery = params.get('mapel');
-    if (mapelQuery) {
-      setMapelFromParam(mapelQuery);
-    }
-  }  // Tutup if referrer
+    {/* ✅ TAMBAHKAN KONDISI: Tombol hanya muncul jika dari link PKBM */}
+{isFromPKBM && (
+  <div className="mt-4">
+    <a
+      href="https://app-siswa-pkbm.netlify.app/"
+      className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
+    >
+      Kunjungi Halaman Eksternal
+    </a>
+  </div>
+)}
 
   return () => {
     clearInterval(interval);
@@ -371,19 +367,7 @@ const App: React.FC = () => {
       URL.revokeObjectURL(form.photo);
     }
   };
-}, [isLoggedIn, userRole, form.nisn, loginForm.role]);
-
-// ✅ TAMBAHKAN USEEFFECT BARU INI: Set otomatis mapel setelah mapelData loaded
-useEffect(() => {
-  if (isFromPKBM && mapelFromParam && mapelData.length > 0 && selectedMapel === "") {
-    // Check jika mapel dari param valid
-    if (mapelData.some(m => m.mapel === mapelFromParam)) {
-      setSelectedMapel(mapelFromParam);
-      // Opsional: Reset param setelah set, agar tidak re-set
-      setMapelFromParam(null);
-    }
-  }
-}, [mapelData, mapelFromParam, isFromPKBM, selectedMapel]);  // Dependensi: Re-run saat mapelData update atau param ada
+}, [isLoggedIn, userRole, form.nisn]);
 
   // Auto-polling untuk halaman data absensi
   useEffect(() => {
