@@ -236,6 +236,7 @@ const App: React.FC = () => {
   });
   const [selectedMapelGuru, setSelectedMapelGuru] = useState("");
   const [isFromPKBM, setIsFromPKBM] = useState(false);
+  const [mapelFromParam, setMapelFromParam] = useState<string | null>(null);
 
   // ✅ PINDAHKAN FUNGSI INI KE LUAR useEffect — DI ATAS USEEFFECT, TAPI MASIH DI DALAM COMPONENT App
   const fetchMapelData = async () => {
@@ -348,27 +349,21 @@ const App: React.FC = () => {
       );
     }, 1000);
 
-    // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol dan otomatis pilih role "Siswa"
+    // ✅ Cek referrer
   const referrer = document.referrer;
   if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
     setIsFromPKBM(true);
     
-    // Otomatis pilih role "Siswa" jika referrer cocok dan role belum dipilih
     if (loginForm.role === "") {
       setLoginForm(prev => ({ ...prev, role: "Siswa" }));
+    }
 
-      // Parse query params dari URL untuk dapatkan mapel (misal ?mapel=Matematika)
-      const params = new URLSearchParams(window.location.search);
-      const mapelFromQuery = params.get('mapel');  // Ambil param 'mapel'
-      
-      // Jika ada param mapel dan cocok dengan data mapelData, set otomatis
-      if (mapelFromQuery && mapelData.some(m => m.mapel === mapelFromQuery)) {
-        if (selectedMapel === "") {
-          setSelectedMapel(mapelFromQuery);
-        }
-      }
-    }  // Tutup if (loginForm.role === "")
-  }  // ✅ TAMBAHKAN INI: Tutup if referrer di sini!
+    const params = new URLSearchParams(window.location.search);
+    const mapelQuery = params.get('mapel');
+    if (mapelQuery) {
+      setMapelFromParam(mapelQuery);
+    }
+  }  // Tutup if referrer
 
   return () => {
     clearInterval(interval);
@@ -376,7 +371,19 @@ const App: React.FC = () => {
       URL.revokeObjectURL(form.photo);
     }
   };
-}, [isLoggedIn, userRole, form.nisn, mapelData]);
+}, [isLoggedIn, userRole, form.nisn, loginForm.role]);
+
+// ✅ TAMBAHKAN USEEFFECT BARU INI: Set otomatis mapel setelah mapelData loaded
+useEffect(() => {
+  if (isFromPKBM && mapelFromParam && mapelData.length > 0 && selectedMapel === "") {
+    // Check jika mapel dari param valid
+    if (mapelData.some(m => m.mapel === mapelFromParam)) {
+      setSelectedMapel(mapelFromParam);
+      // Opsional: Reset param setelah set, agar tidak re-set
+      setMapelFromParam(null);
+    }
+  }
+}, [mapelData, mapelFromParam, isFromPKBM, selectedMapel]);  // Dependensi: Re-run saat mapelData update atau param ada
 
   // Auto-polling untuk halaman data absensi
   useEffect(() => {
