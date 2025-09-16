@@ -2158,7 +2158,6 @@ const App: React.FC = () => {
               Kunjungi Halaman Eksternal
             </a>
           </div>
-        )}
       </div>
     </div>
   );
