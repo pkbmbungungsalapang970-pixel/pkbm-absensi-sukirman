@@ -235,6 +235,7 @@ const App: React.FC = () => {
     loading: false,
   });
   const [selectedMapelGuru, setSelectedMapelGuru] = useState("");
+  const [isFromPKBM, setIsFromPKBM] = useState(false);
 
   // ✅ PINDAHKAN FUNGSI INI KE LUAR useEffect — DI ATAS USEEFFECT, TAPI MASIH DI DALAM COMPONENT App
   const fetchMapelData = async () => {
@@ -346,6 +347,12 @@ const App: React.FC = () => {
         })
       );
     }, 1000);
+
+    // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol
+const referrer = document.referrer;
+if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
+  setIsFromPKBM(true);
+}
 
     return () => {
       clearInterval(interval);
@@ -2019,148 +2026,147 @@ const App: React.FC = () => {
   };
 
   const renderLoginPage = () => (
-    <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
-      <div className="space-y-4">
-        <select
-          name="role"
-          value={loginForm.role}
-          onChange={handleLoginInputChange}
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Pilih Peran</option>
-          <option value="Guru">Guru</option>
-          <option value="Siswa">Siswa</option>
-          <option value="Kepala Sekolah">Kepala Sekolah</option>{" "}
-          {/* Tambahkan ini */}
-        </select>
+  <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
+    <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
+    <div className="space-y-4">
+      <select
+        name="role"
+        value={loginForm.role}
+        onChange={handleLoginInputChange}
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Pilih Peran</option>
+        <option value="Guru">Guru</option>
+        <option value="Siswa">Siswa</option>
+        <option value="Kepala Sekolah">Kepala Sekolah</option>
+      </select>
 
-        {/* ✅ BAGIAN BARU: Dropdown Kelas (Hanya muncul jika role adalah Siswa) */}
-        {loginForm.role === "Siswa" && (
+      {loginForm.role === "Siswa" && (
+        <select
+          value={selectedClassForLogin}
+          onChange={(e) => {
+            setSelectedClassForLogin(e.target.value);
+            setLoginForm((prev) => ({ ...prev, name: "", error: "" }));
+          }}
+          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={!loginForm.role}
+        >
+          <option value="">Pilih Kelas</option>
+          {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
+            <option key={kelas} value={kelas}>
+              {kelas}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {loginForm.role === "Siswa" && (
+        <div className="mt-4">
           <select
-            value={selectedClassForLogin}
-            onChange={(e) => {
-              setSelectedClassForLogin(e.target.value);
-              // Reset nama saat kelas berubah
-              setLoginForm((prev) => ({ ...prev, name: "", error: "" }));
-            }}
+            value={selectedMapel}
+            onChange={(e) => setSelectedMapel(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={!loginForm.role}
+            disabled={!loginForm.role || !selectedClassForLogin}
           >
-            <option value="">Pilih Kelas</option>
-            {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
-              <option key={kelas} value={kelas}>
-                {kelas}
+            <option value="">Pilih Mata Pelajaran</option>
+            {mapelData.map((mapel, index) => (
+              <option key={index} value={mapel.mapel}>
+                {mapel.mapel}
               </option>
             ))}
           </select>
-        )}
+        </div>
+      )}
 
-        {loginForm.role === "Siswa" && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1"></label>
-            <select
-              value={selectedMapel}
-              onChange={(e) => setSelectedMapel(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!loginForm.role || !selectedClassForLogin} // Hanya aktif jika kelas dipilih
-            >
-              <option value="">Pilih Mata Pelajaran</option>
-              {mapelData.map((mapel, index) => (
-                <option key={index} value={mapel.mapel}>
-                  {mapel.mapel}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* ✅ MODIFIKASI: Dropdown Nama - Hanya tampilkan siswa sesuai kelas yang dipilih */}
-        <select
-          name="name"
-          value={loginForm.name}
-          onChange={handleLoginInputChange}
-          disabled={
-            !loginForm.role ||
-            (loginForm.role === "Siswa" && !selectedClassForLogin)
-          }
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          <option value="">Pilih Nama</option>
-          {loginForm.role === "Guru"
-            ? teacherData.map((item) => (
-                <option key={item.nip} value={item.name}>
+      <select
+        name="name"
+        value={loginForm.name}
+        onChange={handleLoginInputChange}
+        disabled={
+          !loginForm.role ||
+          (loginForm.role === "Siswa" && !selectedClassForLogin)
+        }
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      >
+        <option value="">Pilih Nama</option>
+        {loginForm.role === "Guru"
+          ? teacherData.map((item) => (
+              <option key={item.nip} value={item.name}>
+                {item.name}
+              </option>
+            ))
+          : loginForm.role === "Siswa"
+          ? studentData
+              .filter(
+                (student) =>
+                  selectedClassForLogin === "" ||
+                  student.class === selectedClassForLogin
+              )
+              .map((item) => (
+                <option key={item.nisn} value={item.name}>
                   {item.name}
                 </option>
               ))
+          : loginForm.role === "Kepala Sekolah"
+          ? kepsekData.map((item) => (
+              <option key={item.nomorinduk} value={item.name}>
+                {item.name}
+              </option>
+            ))
+          : null}
+      </select>
+
+      <input
+        type="text"
+        name="idNumber"
+        value={loginForm.idNumber}
+        onChange={handleLoginInputChange}
+        placeholder={
+          loginForm.role === "Guru"
+            ? "NIP"
             : loginForm.role === "Siswa"
-            ? studentData
-                .filter(
-                  (student) =>
-                    selectedClassForLogin === "" ||
-                    student.class === selectedClassForLogin
-                ) // ✅ FILTER BERDASARKAN selectedClassForLogin
-                .map((item) => (
-                  <option key={item.nisn} value={item.name}>
-                    {item.name}
-                  </option>
-                ))
-            : loginForm.role === "Kepala Sekolah" // Tambahkan ini
-            ? kepsekData.map((item) => (
-                <option key={item.nomorinduk} value={item.name}>
-                  {item.name}
-                </option>
-              ))
-            : null}
-        </select>
+            ? "NISN"
+            : loginForm.role === "Kepala Sekolah"
+            ? "Nomor Induk"
+            : "Nomor Induk"
+        }
+        disabled={
+          !loginForm.role ||
+          (loginForm.role === "Siswa" && !selectedClassForLogin)
+        }
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      />
+      {loginForm.error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
+          {loginForm.error}
+        </div>
+      )}
+      <button
+        onClick={handleLogin}
+        disabled={
+          loginForm.loading ||
+          !loginForm.role ||
+          (loginForm.role === "Siswa" && !selectedClassForLogin)
+        }
+        className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+      >
+        {loginForm.loading ? "⏳ Memproses..." : "Login"}
+      </button>
 
-        <input
-          type="text"
-          name="idNumber"
-          value={loginForm.idNumber}
-          onChange={handleLoginInputChange}
-          placeholder={
-            loginForm.role === "Guru"
-              ? "NIP"
-              : loginForm.role === "Siswa"
-              ? "NISN"
-              : loginForm.role === "Kepala Sekolah"
-              ? "Nomor Induk"
-              : "Nomor Induk"
-          }
-          disabled={
-            !loginForm.role ||
-            (loginForm.role === "Siswa" && !selectedClassForLogin)
-          }
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        />
-        {loginForm.error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
-            {loginForm.error}
-          </div>
-        )}
-        <button
-          onClick={handleLogin}
-          disabled={
-            loginForm.loading ||
-            !loginForm.role ||
-            (loginForm.role === "Siswa" && !selectedClassForLogin)
-          }
-          className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
-        >
-          {loginForm.loading ? "⏳ Memproses..." : "Login"}
-        </button>
-          <div className="mt-4">
-            <a
-              href="https://app-siswa-pkbm.netlify.app/"
-              className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
-            >
-              Kunjungi Halaman Eksternal
-            </a>
-          </div>
-      </div>
+      {/* ✅ TAMBAHKAN KONDISI: Tombol hanya muncul jika dari link PKBM */}
+      {isFromPKBM && (
+        <div className="mt-4">
+          <a
+            href="https://app-siswa-pkbm.netlify.app/"
+            className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
+          >
+            Kunjungi Halaman Eksternal
+          </a>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 
   const renderFormPage = () => (
     <div className="bg-white shadow-lg rounded-lg p-6">
