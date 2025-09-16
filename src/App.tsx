@@ -348,10 +348,14 @@ const App: React.FC = () => {
       );
     }, 1000);
 
-    // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol
+    // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol dan otomatis pilih role "Siswa"
 const referrer = document.referrer;
 if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
   setIsFromPKBM(true);
+  // Otomatis pilih role "Siswa" jika referrer cocok dan role belum dipilih
+  if (loginForm.role === "") {  // Cek agar tidak override jika user sudah pilih manual
+    setLoginForm(prev => ({ ...prev, role: "Siswa" }));
+  }
 }
     
     return () => {
