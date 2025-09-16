@@ -352,9 +352,20 @@ const App: React.FC = () => {
 const referrer = document.referrer;
 if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
   setIsFromPKBM(true);
+  
   // Otomatis pilih role "Siswa" jika referrer cocok dan role belum dipilih
   if (loginForm.role === "") {  // Cek agar tidak override jika user sudah pilih manual
     setLoginForm(prev => ({ ...prev, role: "Siswa" }));
+
+    // Parse query params dari URL untuk dapatkan mapel (misal ?mapel=Matematika)
+    const params = new URLSearchParams(window.location.search);
+    const mapelFromQuery = params.get('mapel');  // Ambil param 'mapel'
+    
+    // Jika ada param mapel dan cocok dengan data mapelData, set otomatis
+    if (mapelFromQuery && mapelData.some(m => m.mapel === mapelFromQuery)) {
+      if (selectedMapel === "") {  // Cek agar tidak override jika user sudah pilih
+        setSelectedMapel(mapelFromQuery);
+      }
   }
 }
     
