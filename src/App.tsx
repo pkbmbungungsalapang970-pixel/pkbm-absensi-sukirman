@@ -354,6 +354,12 @@ if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
   setIsFromPKBM(true);
 }
 
+    // ✅ TAMBAHKAN INI: Otomatis set role ke "Siswa" jika dari PKBM dan belum login
+    if (!isLoggedIn && loginForm.role === "") {
+      setLoginForm((prev) => ({ ...prev, role: "Siswa" }));
+    }
+  }
+
     return () => {
       clearInterval(interval);
       if (form.photo) {
