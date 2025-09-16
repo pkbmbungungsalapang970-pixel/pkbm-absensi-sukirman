@@ -349,18 +349,6 @@ const App: React.FC = () => {
       );
     }, 1000);
 
-    {/* ✅ TAMBAHKAN KONDISI: Tombol hanya muncul jika dari link PKBM */}
-{isFromPKBM && (
-  <div className="mt-4">
-    <a
-      href="https://app-siswa-pkbm.netlify.app/"
-      className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
-    >
-      Kunjungi Halaman Eksternal
-    </a>
-  </div>
-)}
-
 // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol dan otomatis pilih role "Siswa"
 const referrer = document.referrer;
 if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
