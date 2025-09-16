@@ -354,11 +354,16 @@ if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
   setIsFromPKBM(true);
 }
 
-    // ✅ TAMBAHKAN INI: Otomatis set role ke "Siswa" jika dari PKBM dan belum login
-    if (!isLoggedIn && loginForm.role === "") {
-      setLoginForm((prev) => ({ ...prev, role: "Siswa" }));
-    }
-  }
+    // ✅ PERBAIKI INI: Otomatis set role ke "Siswa" jika dari PKBM dan belum login
+if (!isLoggedIn && loginForm.role === "") {
+setLoginForm((prev) => ({ ...prev, role: "Siswa" }));
+console.log('Auto-setting role to Siswa');  // ✅ TAMBAHKAN INI UNTUK DEBUG: Konfirmasi jika logika terpicu
+} else {
+console.log('Role not set: Already logged in or role not empty');  // ✅ TAMBAHKAN INI UNTUK DEBUG: Alasan jika tidak terpicu
+}
+} else {
+console.log('Not from PKBM referrer');  // ✅ TAMBAHKAN INI UNTUK DEBUG: Jika referrer tidak cocok
+}
 
     return () => {
       clearInterval(interval);
