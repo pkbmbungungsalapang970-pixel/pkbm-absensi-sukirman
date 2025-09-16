@@ -257,19 +257,6 @@ const App: React.FC = () => {
     }
   };
 
-  // ✅ ✅ ✅ TAMBAHKAN useEffect BARU INI ✅ ✅ ✅
-useEffect(() => {
-  // Otomatis isi role sebagai "Siswa" jika diakses dari link PKBM
-  if (window.location.href.startsWith('https://app-siswa-pkbm.netlify.app/')) {
-    setLoginForm((prev) => ({
-      ...prev,
-      role: "Siswa",
-    }));
-    // Opsional: Jika ingin langsung memicu efek samping seperti mengubah tampilan dropdown kelas
-    // Anda bisa juga langsung memanggil fungsi atau mengatur state lain di sini.
-  }
-}, []); // <-- Dependensi kosong, hanya jalan sekali saat komponen pertama kali dimuat
-
   useEffect(() => {
     const now = new Date();
     const witaDate = new Date(
