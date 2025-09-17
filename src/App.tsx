@@ -2043,7 +2043,6 @@ const App: React.FC = () => {
     <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
       <div className="space-y-4">
-        // Select Role (dengan disabled jika dari PKBM)
 <select
   name="role"
   value={loginForm.role}
@@ -2057,7 +2056,6 @@ const App: React.FC = () => {
   <option value="Kepala Sekolah">Kepala Sekolah</option>
 </select>
 
-// Input Mata Pelajaran (dengan disabled jika dari PKBM)
 {loginForm.role === "Siswa" && (
   <div className="mt-4">
     <label className="block text-sm font-medium text-gray-700 mb-1">
