@@ -2043,34 +2043,36 @@ const App: React.FC = () => {
     <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
       <div className="space-y-4">
-        <select
-          name="role"
-          value={loginForm.role}
-          onChange={handleLoginInputChange}
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Pilih Peran</option>
-          <option value="Guru">Guru</option>
-          <option value="Siswa">Siswa</option>
-          <option value="Kepala Sekolah">Kepala Sekolah</option>
-        </select>
+        // Select Role (dengan disabled jika dari PKBM)
+<select
+  name="role"
+  value={loginForm.role}
+  onChange={handleLoginInputChange}
+  disabled={isFromPKBM}  // ✅ TAMBAH INI: Disable jika dari PKBM (role auto Siswa, tidak bisa ganti)
+  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
+>
+  <option value="">Pilih Peran</option>
+  <option value="Guru">Guru</option>
+  <option value="Siswa">Siswa</option>
+  <option value="Kepala Sekolah">Kepala Sekolah</option>
+</select>
 
-        {/* ✅ POSISI BARU: Dropdown Mata Pelajaran di atas Kelas (hanya jika role Siswa) */}
-        {loginForm.role === "Siswa" && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mata Pelajaran
-            </label>
-            <input
-              type="text"
-              value={selectedMapel}
-              onChange={(e) => setSelectedMapel(e.target.value)}
-              placeholder="Ketik nama mata pelajaran (misal: Matematika)"
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!loginForm.role} // Opsional: Disable jika role belum dipilih
-            />
-          </div>
-        )}
+// Input Mata Pelajaran (dengan disabled jika dari PKBM)
+{loginForm.role === "Siswa" && (
+  <div className="mt-4">
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Mata Pelajaran
+    </label>
+    <input
+      type="text"
+      value={selectedMapel}
+      onChange={(e) => setSelectedMapel(e.target.value)}
+      placeholder="Ketik nama mata pelajaran (misal: Matematika)"
+      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
+      disabled={isFromPKBM || !loginForm.role}  // ✅ TAMBAH INI: Disable jika dari PKBM (atau role belum pilih)
+    />
+  </div>
+)}
 
         {/* ✅ POSISI BARU: Dropdown Kelas di bawah Mata Pelajaran (hanya jika role Siswa) */}
         {loginForm.role === "Siswa" && (
