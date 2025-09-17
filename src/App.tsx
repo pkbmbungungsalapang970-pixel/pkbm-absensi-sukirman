@@ -2043,115 +2043,137 @@ const App: React.FC = () => {
     <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
       <div className="space-y-4">
-<select
-  name="role"
-  value={loginForm.role}
-  onChange={handleLoginInputChange}
-  disabled={isFromPKBM}  // ✅ TAMBAH INI: Disable jika dari PKBM (role auto Siswa, tidak bisa ganti)
-  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
->
-  <option value="">Pilih Peran</option>
-  <option value="Guru">Guru</option>
-  <option value="Siswa">Siswa</option>
-  <option value="Kepala Sekolah">Kepala Sekolah</option>
-</select>
-
-{loginForm.role === "Siswa" && (
-  <div className="mt-4">
+  {/* Label untuk Peran */}
+  <div>
     <label className="block text-sm font-medium text-gray-700 mb-1">
-      Mata Pelajaran
+      Sebagai
+    </label>
+    <select
+      name="role"
+      value={loginForm.role}
+      onChange={handleLoginInputChange}
+      disabled={isFromPKBM}
+      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+    >
+      <option value="">Pilih Peran</option>
+      <option value="Guru">Guru</option>
+      <option value="Siswa">Siswa</option>
+      <option value="Kepala Sekolah">Kepala Sekolah</option>
+    </select>
+  </div>
+
+  {/* ✅ POSISI BARU: Dropdown Mata Pelajaran di atas Kelas (hanya jika role Siswa) */}
+  {loginForm.role === "Siswa" && (
+    <div className="mt-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Mata Pelajaran
+      </label>
+      <input
+        type="text"
+        value={selectedMapel}
+        onChange={(e) => setSelectedMapel(e.target.value)}
+        placeholder="Ketik nama mata pelajaran (misal: Matematika)"
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        disabled={isFromPKBM || !loginForm.role}
+      />
+    </div>
+  )}
+
+  {/* ✅ POSISI BARU: Dropdown Kelas di bawah Mata Pelajaran (hanya jika role Siswa) */}
+  {loginForm.role === "Siswa" && (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        Kelas
+      </label>
+      <select
+        value={selectedClassForLogin}
+        onChange={(e) => {
+          setSelectedClassForLogin(e.target.value);
+          // Reset nama saat kelas berubah
+          setLoginForm((prev) => ({ ...prev, name: "", error: "" }));
+        }}
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        disabled={!loginForm.role}
+      >
+        <option value="">Pilih Kelas</option>
+        {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
+          <option key={kelas} value={kelas}>
+            {kelas}
+          </option>
+        ))}
+      </select>
+    </div>
+  )}
+
+  {/* ✅ MODIFIKASI: Dropdown Nama - Hanya tampilkan siswa sesuai kelas yang dipilih */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      Nama Siswa
+    </label>
+    <select
+      name="name"
+      value={loginForm.name}
+      onChange={handleLoginInputChange}
+      disabled={
+        !loginForm.role ||
+        (loginForm.role === "Siswa" && !selectedClassForLogin)
+      }
+      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+    >
+      <option value="">Pilih Nama</option>
+      {loginForm.role === "Guru"
+        ? teacherData.map((item) => (
+            <option key={item.nip} value={item.name}>
+              {item.name}
+            </option>
+          ))
+        : loginForm.role === "Siswa"
+        ? studentData
+            .filter(
+              (student) =>
+                selectedClassForLogin === "" ||
+                student.class === selectedClassForLogin
+            )
+            .map((item) => (
+              <option key={item.nisn} value={item.name}>
+                {item.name}
+              </option>
+            ))
+        : loginForm.role === "Kepala Sekolah"
+        ? kepsekData.map((item) => (
+            <option key={item.nomorinduk} value={item.name}>
+              {item.name}
+            </option>
+          ))
+        : null}
+    </select>
+  </div>
+
+  {/* Input NISN */}
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      NISN
     </label>
     <input
       type="text"
-      value={selectedMapel}
-      onChange={(e) => setSelectedMapel(e.target.value)}
-      placeholder="Ketik nama mata pelajaran (misal: Matematika)"
-      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
-      disabled={isFromPKBM || !loginForm.role}  // ✅ TAMBAH INI: Disable jika dari PKBM (atau role belum pilih)
+      name="idNumber"
+      value={loginForm.idNumber}
+      onChange={handleLoginInputChange}
+      placeholder={
+        loginForm.role === "Guru"
+          ? "NIP"
+          : loginForm.role === "Siswa"
+          ? "NISN"
+          : loginForm.role === "Kepala Sekolah"
+          ? "Nomor Induk"
+          : "Nomor Induk"
+      }
+      disabled={
+        !loginForm.role ||
+        (loginForm.role === "Siswa" && !selectedClassForLogin)
+      }
+      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
     />
-  </div>
-)}
-
-        {/* ✅ POSISI BARU: Dropdown Kelas di bawah Mata Pelajaran (hanya jika role Siswa) */}
-        {loginForm.role === "Siswa" && (
-          <select
-            value={selectedClassForLogin}
-            onChange={(e) => {
-              setSelectedClassForLogin(e.target.value);
-              // Reset nama saat kelas berubah
-              setLoginForm((prev) => ({ ...prev, name: "", error: "" }));
-            }}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={!loginForm.role}
-          >
-            <option value="">Pilih Kelas</option>
-            {[...new Set(studentData.map((s) => s.class))].map((kelas) => (
-              <option key={kelas} value={kelas}>
-                {kelas}
-              </option>
-            ))}
-          </select>
-        )}
-
-        {/* ✅ MODIFIKASI: Dropdown Nama - Hanya tampilkan siswa sesuai kelas yang dipilih */}
-        <select
-          name="name"
-          value={loginForm.name}
-          onChange={handleLoginInputChange}
-          disabled={
-            !loginForm.role ||
-            (loginForm.role === "Siswa" && !selectedClassForLogin)
-          }
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          <option value="">Pilih Nama</option>
-          {loginForm.role === "Guru"
-            ? teacherData.map((item) => (
-                <option key={item.nip} value={item.name}>
-                  {item.name}
-                </option>
-              ))
-            : loginForm.role === "Siswa"
-            ? studentData
-                .filter(
-                  (student) =>
-                    selectedClassForLogin === "" ||
-                    student.class === selectedClassForLogin
-                )
-                .map((item) => (
-                  <option key={item.nisn} value={item.name}>
-                    {item.name}
-                  </option>
-                ))
-            : loginForm.role === "Kepala Sekolah"
-            ? kepsekData.map((item) => (
-                <option key={item.nomorinduk} value={item.name}>
-                  {item.name}
-                </option>
-              ))
-            : null}
-        </select>
-
-        <input
-          type="text"
-          name="idNumber"
-          value={loginForm.idNumber}
-          onChange={handleLoginInputChange}
-          placeholder={
-            loginForm.role === "Guru"
-              ? "NIP"
-              : loginForm.role === "Siswa"
-              ? "NISN"
-              : loginForm.role === "Kepala Sekolah"
-              ? "Nomor Induk"
-              : "Nomor Induk"
-          }
-          disabled={
-            !loginForm.role ||
-            (loginForm.role === "Siswa" && !selectedClassForLogin)
-          }
-          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        />
         {loginForm.error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
             {loginForm.error}
