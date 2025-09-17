@@ -2169,17 +2169,17 @@ const App: React.FC = () => {
           {loginForm.loading ? "⏳ Memproses..." : "Login"}
         </button>
 
-        {/* ✅ TAMBAHKAN KONDISI: Tombol hanya muncul jika dari link PKBM */}
-        {isFromPKBM && (
-          <div className="mt-4">
-            <a
-              href="https://app-siswa-pkbm.netlify.app/"
-              className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
-            >
-              Kunjungi Halaman Eksternal
-            </a>
-          </div>
-        )}
+        {/* ✅ TAMBAHKAN KONDISI: Tombol Kembali hanya muncul jika dari link PKBM */}
+{isFromPKBM && (
+  <div className="mt-4">
+    <button
+      onClick={() => window.history.back()}
+      className="block w-full text-center bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition duration-200"
+    >
+      ← Kembali
+    </button>
+  </div>
+)}
       </div>
     </div>
   );
