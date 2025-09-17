@@ -2059,7 +2059,6 @@ const App: React.FC = () => {
         {loginForm.role === "Siswa" && (
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Mata Pelajaran
             </label>
             <input
               type="text"
