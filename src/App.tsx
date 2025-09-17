@@ -349,24 +349,32 @@ const App: React.FC = () => {
       );
     }, 1000);
 
-// ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol dan otomatis pilih role "Siswa"
-const referrer = document.referrer;
-if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
-  setIsFromPKBM(true);
-  
-  // Otomatis pilih role "Siswa" jika referrer cocok dan role belum dipilih
-  if (loginForm.role === "") {
-    setLoginForm(prev => ({ ...prev, role: "Siswa" }));
-  }
-}
+    // ✅ TAMBAHKAN INI: Cek referrer untuk kondisi tombol dan otomatis pilih role "Siswa"
+    const referrer = document.referrer;
+    if (referrer.startsWith("https://app-siswa-pkbm.netlify.app/")) {
+      setIsFromPKBM(true);
 
-  return () => {
-    clearInterval(interval);
-    if (form.photo) {
-      URL.revokeObjectURL(form.photo);
+      // Otomatis pilih role "Siswa" jika referrer cocok dan role belum dipilih
+      if (loginForm.role === "") {
+        setLoginForm((prev) => ({ ...prev, role: "Siswa" }));
+      }
+
+      // ✅ TAMBAHKAN INI: Parse query param 'mapel' dari URL current app dan isi otomatis ke selectedMapel
+      const params = new URLSearchParams(window.location.search);
+      const mapelParam = params.get("mapel"); // Ambil param ?mapel=...
+      if (mapelParam) {
+        setSelectedMapel(mapelParam); // Isi otomatis ke field Mata Pelajaran
+        setMapelFromParam(mapelParam); // Opsional: Simpan ke state mapelFromParam jika ingin gunakan di tempat lain
+      }
     }
-  };
-}, [isLoggedIn, userRole, form.nisn]);
+
+    return () => {
+      clearInterval(interval);
+      if (form.photo) {
+        URL.revokeObjectURL(form.photo);
+      }
+    };
+  }, [isLoggedIn, userRole, form.nisn]);
 
   // Auto-polling untuk halaman data absensi
   useEffect(() => {
@@ -2050,20 +2058,17 @@ if (referrer.startsWith('https://app-siswa-pkbm.netlify.app/')) {
         {/* ✅ POSISI BARU: Dropdown Mata Pelajaran di atas Kelas (hanya jika role Siswa) */}
         {loginForm.role === "Siswa" && (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1"></label>
-            <select
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mata Pelajaran
+            </label>
+            <input
+              type="text"
               value={selectedMapel}
               onChange={(e) => setSelectedMapel(e.target.value)}
+              placeholder="Ketik nama mata pelajaran (misal: Matematika)"
               className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!loginForm.role} // Hilangkan dependensi pada selectedClassForLogin
-            >
-              <option value="">Pilih Mata Pelajaran</option>
-              {mapelData.map((mapel, index) => (
-                <option key={index} value={mapel.mapel}>
-                  {mapel.mapel}
-                </option>
-              ))}
-            </select>
+              disabled={!loginForm.role} // Opsional: Disable jika role belum dipilih
+            />
           </div>
         )}
 
