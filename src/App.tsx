@@ -4563,15 +4563,16 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-      <div className="relative py-3 sm:max-w-4xl sm:mx-auto w-full max-w-4xl mx-auto px-4">
-        <h1 className="text-center text-2xl font-semibold text-gray-900 mb-6">
-          Aplikasi Absensi Siswa
-        </h1>
-
-        {!isLoggedIn ? (
-          renderLoginPage()
-        ) : (
+  <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
+    <div className="relative py-3 sm:max-w-4xl sm:mx-auto w-full max-w-4xl mx-auto px-4">
+      {!isLoggedIn ? (
+        <>
+          <h1 className="text-center text-2xl font-semibold text-gray-900 mb-6">
+            {isFromPKBM ? "Aplikasi Absensi Siswa" : "Aplikasi Pengelolaan Data Kehadiran Siswa"}
+          </h1>
+          {renderLoginPage()}
+        </>
+      ) : (
           <>
             <div className="flex justify-center mb-6">
               <div className="bg-white rounded-lg shadow-lg p-1 flex relative">
