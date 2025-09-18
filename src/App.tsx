@@ -4,7 +4,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbzHD2R0jHGYmwpogLiVBUx1YcxsKNT70yyRKG94ZRkRvEAAdWN4YnI5qJLt18hvBJiP/exec";
+  "https://script.google.com/macros/s/AKfycbxeanvJQxAvvDR6xTe51mtzhexRcrCYoU-bbXV_ioy4X9vUdYK06XLI3sanyIVdVRSH/exec";
 
 interface Attendance {
   id: number;
@@ -1269,12 +1269,23 @@ const App: React.FC = () => {
 
   // Fungsi untuk hitung summary berdasarkan absensi hari ini
   const calculateSummary = () => {
+    // ✅ PERBAIKAN: Jika kelas atau mapel belum dipilih, jangan hitung apa-apa. Biarkan summary tetap 0.
+    if (!filterKelas || !selectedMapelGuru) {
+      setSummaryAbsensi({
+        hadir: 0,
+        izin: 0,
+        sakit: 0,
+        alpha: 0,
+      });
+      setAbsensiHariIni({}); // Kosongkan juga status per siswa
+      return;
+    }
+
     const selectedDate = teacherForm.date;
     const absensiToday = attendanceData.filter((att) => {
       const attDate = att.date.includes("/")
         ? att.date.split("/").reverse().join("-")
         : att.date;
-
       let matchMapel = true;
       let matchKelas = true;
 
@@ -1283,7 +1294,7 @@ const App: React.FC = () => {
         matchMapel = att.mapel === selectedMapelGuru;
       }
 
-      // Filter kelas jika dipilih (skip jika filterKelas kosong)
+      // Filter kelas jika dipilih
       if (filterKelas) {
         matchKelas = att.class === filterKelas;
       }
@@ -1300,7 +1311,7 @@ const App: React.FC = () => {
 
     setSummaryAbsensi(summary);
 
-    // Update status per siswa (sekarang juga filter per mapel dan kelas)
+    // Update status per siswa
     const statusMap: { [key: string]: string } = {};
     absensiToday.forEach((att) => {
       statusMap[att.nisn] = att.status;
@@ -2044,33 +2055,32 @@ const App: React.FC = () => {
     <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-md mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-4">Login</h2>
       <div className="space-y-4">
-<select
-  name="role"
-  value={loginForm.role}
-  onChange={handleLoginInputChange}
-  disabled={isFromPKBM}  // ✅ TAMBAH INI: Disable jika dari PKBM (role auto Siswa, tidak bisa ganti)
-  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
->
-  <option value="">Pilih Peran</option>
-  <option value="Guru">Guru</option>
-  <option value="Siswa">Siswa</option>
-  <option value="Kepala Sekolah">Kepala Sekolah</option>
-</select>
+        <select
+          name="role"
+          value={loginForm.role}
+          onChange={handleLoginInputChange}
+          disabled={isFromPKBM} // ✅ TAMBAH INI: Disable jika dari PKBM (role auto Siswa, tidak bisa ganti)
+          className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" // ✅ Tambah disabled:opacity-50 untuk visual
+        >
+          <option value="">Pilih Peran</option>
+          <option value="Guru">Guru</option>
+          <option value="Siswa">Siswa</option>
+          <option value="Kepala Sekolah">Kepala Sekolah</option>
+        </select>
 
-{loginForm.role === "Siswa" && (
-  <div className="mt-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-    </label>
-    <input
-      type="text"
-      value={selectedMapel}
-      onChange={(e) => setSelectedMapel(e.target.value)}
-      placeholder="Ketik nama mata pelajaran (misal: Matematika)"
-      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"  // ✅ Tambah disabled:opacity-50 untuk visual
-      disabled={isFromPKBM || !loginForm.role}  // ✅ TAMBAH INI: Disable jika dari PKBM (atau role belum pilih)
-    />
-  </div>
-)}
+        {loginForm.role === "Siswa" && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1"></label>
+            <input
+              type="text"
+              value={selectedMapel}
+              onChange={(e) => setSelectedMapel(e.target.value)}
+              placeholder="Ketik nama mata pelajaran (misal: Matematika)"
+              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50" // ✅ Tambah disabled:opacity-50 untuk visual
+              disabled={isFromPKBM || !loginForm.role} // ✅ TAMBAH INI: Disable jika dari PKBM (atau role belum pilih)
+            />
+          </div>
+        )}
 
         {/* ✅ POSISI BARU: Dropdown Kelas di bawah Mata Pelajaran (hanya jika role Siswa) */}
         {loginForm.role === "Siswa" && (
@@ -2450,7 +2460,14 @@ const App: React.FC = () => {
         </div>
         {/* Daftar Siswa */}
         <div className="overflow-x-auto">
-          {filterKelas !== "" && filteredStudents.length > 0 ? (
+          {selectedMapelGuru === "" || filterKelas === "" ? (
+            // 👈 TAMPILKAN SATU PESAN INI JIKA BELUM PILIH MAPEL ATAU KELAS
+            <div className="p-6 text-center text-gray-500 italic bg-gray-50 border border-gray-200 rounded-lg">
+              Silahkan pilih kelas dan Mata Pelajaran terlebih dahulu untuk
+              memunculkan daftar nama siswa
+            </div>
+          ) : filteredStudents.length > 0 ? (
+            // 👈 TAMPILKAN DAFTAR SISWA HANYA JIKA KEDUA KONDISI TERPENUHI
             filteredStudents.map((student) => {
               const isAlreadyAttended = !!absensiHariIni[student.nisn];
               const tempStatus = tempAbsensi[student.nisn];
@@ -2540,10 +2557,9 @@ const App: React.FC = () => {
               );
             })
           ) : (
+            // 👈 TAMPILKAN PESAN INI JIKA KELAS DAN MAPEL SUDAH DIPILIH, TAPI TIDAK ADA SISWA
             <div className="p-6 text-center text-gray-500 italic">
-              {filterKelas === ""
-                ? "Silakan pilih kelas terlebih dahulu untuk melihat daftar siswa."
-                : "Tidak ada siswa di kelas ini."}
+              Tidak ada siswa di kelas ini.
             </div>
           )}
         </div>
@@ -2649,49 +2665,49 @@ const App: React.FC = () => {
   };
 
   const renderDataPage = () => {
-  // Fungsi untuk mengkonversi Google Drive link ke direct download link
-  const convertGoogleDriveUrl = (url: string): string => {
-    if (url.includes("drive.google.com/file/d/")) {
-      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        const fileId = match[1];
-        return `https://lh3.googleusercontent.com/d/${fileId}=w1000?authuser=0`;
+    // Fungsi untuk mengkonversi Google Drive link ke direct download link
+    const convertGoogleDriveUrl = (url: string): string => {
+      if (url.includes("drive.google.com/file/d/")) {
+        const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          const fileId = match[1];
+          return `https://lh3.googleusercontent.com/d/${fileId}=w1000?authuser=0`;
+        }
       }
-    }
-    return url; // Return original URL if not a Google Drive link
-  };
+      return url; // Return original URL if not a Google Drive link
+    };
 
-  // Alternative converter for Google Drive
-  const convertGoogleDriveUrlAlt = (url: string): string => {
-    if (url.includes("drive.google.com/file/d/")) {
-      const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        const fileId = match[1];
-        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    // Alternative converter for Google Drive
+    const convertGoogleDriveUrlAlt = (url: string): string => {
+      if (url.includes("drive.google.com/file/d/")) {
+        const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          const fileId = match[1];
+          return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        }
       }
-    }
-    return url;
-  };
+      return url;
+    };
 
-  // ✅ TAMBAHKAN INI: Ambil kelas unik dari attendanceData untuk dropdown
-  const uniqueClasses = [
-    "", // Opsi "Semua" (kosong)
-    ...new Set(attendanceData.map((att) => att.class).filter(Boolean)),
-  ];
+    // ✅ TAMBAHKAN INI: Ambil kelas unik dari attendanceData untuk dropdown
+    const uniqueClasses = [
+      "", // Opsi "Semua" (kosong)
+      ...new Set(attendanceData.map((att) => att.class).filter(Boolean)),
+    ];
 
-  // Fungsi untuk download PDF
-  const downloadPDF = async (): Promise<void> => {
-    const button = document.getElementById(
-      "downloadPdfButton"
-    ) as HTMLButtonElement;
-    if (!button) return;
+    // Fungsi untuk download PDF
+    const downloadPDF = async (): Promise<void> => {
+      const button = document.getElementById(
+        "downloadPdfButton"
+      ) as HTMLButtonElement;
+      if (!button) return;
 
-    // Simpan teks dan status awal
-    const originalButtonText = button.innerHTML;
+      // Simpan teks dan status awal
+      const originalButtonText = button.innerHTML;
 
-    // Ubah teks saat memproses
-    button.disabled = true;
-    button.innerHTML = `
+      // Ubah teks saat memproses
+      button.disabled = true;
+      button.innerHTML = `
       <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -2699,88 +2715,452 @@ const App: React.FC = () => {
       Memproses gambar...
     `;
 
-    try {
-      // Debug: Check what's available in window
-      console.log("window.jsPDF:", (window as any).jsPDF);
-      console.log("window.jspdf:", (window as any).jspdf);
-      console.log(
-        "Available properties:",
-        Object.keys(window).filter((key) => key.toLowerCase().includes("pdf"))
-      );
+      try {
+        // Debug: Check what's available in window
+        console.log("window.jsPDF:", (window as any).jsPDF);
+        console.log("window.jspdf:", (window as any).jspdf);
+        console.log(
+          "Available properties:",
+          Object.keys(window).filter((key) => key.toLowerCase().includes("pdf"))
+        );
 
-      // Alternative ways to access jsPDF
-      let jsPDF: any;
+        // Alternative ways to access jsPDF
+        let jsPDF: any;
 
-      if ((window as any).jsPDF) {
-        jsPDF = (window as any).jsPDF;
-        console.log("Using window.jsPDF");
-      } else if ((window as any).jspdf && (window as any).jspdf.jsPDF) {
-        jsPDF = (window as any).jspdf.jsPDF;
-        console.log("Using window.jspdf.jsPDF");
-      } else {
-        // Try to load script dynamically
-        console.log("Attempting to load jsPDF dynamically...");
-        const script = document.createElement("script");
-        script.src = "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js";
-        script.onload = () => {
-          console.log("jsPDF loaded dynamically");
-          setTimeout(() => downloadPDF(), 100); // Retry after script loads
-        };
-        script.onerror = () => {
-          alert("Gagal memuat library jsPDF. Periksa koneksi internet Anda.");
-        };
-        document.head.appendChild(script);
-        return;
-      }
-
-      const doc = new jsPDF();
-
-      // Filter data berdasarkan bulan, tanggal, mapel, dan kelas ✅ TAMBAHKAN matchClass
-      const filteredData: Attendance[] = attendanceData.filter(
-        (attendance: Attendance) => {
-          let matchMonth = true;
-          let matchDate = true;
-          let matchMapel = true;
-          let matchClass = true; // ✅ TAMBAHKAN INI
-
-          // Filter berdasarkan bulan
-          if (selectedMonth) {
-            const [day, month, year] = attendance.date.split("/");
-            matchMonth = month === selectedMonth;
-          }
-
-          // Filter berdasarkan tanggal
-          if (selectedDate) {
-            const [day, month, year] = attendance.date.split("/");
-            const attendanceDate = `${year}-${month.padStart(
-              2,
-              "0"
-            )}-${day.padStart(2, "0")}`;
-            matchDate = attendanceDate === selectedDate;
-          }
-
-          // Filter berdasarkan mata pelajaran
-          if (selectedMapel) {
-            matchMapel = attendance.mapel === selectedMapel;
-          }
-
-          // ✅ TAMBAHKAN INI: Filter berdasarkan kelas
-          if (selectedClass) {
-            matchClass = attendance.class === selectedClass;
-          }
-
-          return matchMonth && matchDate && matchMapel && matchClass; // ✅ TAMBAHKAN matchClass
+        if ((window as any).jsPDF) {
+          jsPDF = (window as any).jsPDF;
+          console.log("Using window.jsPDF");
+        } else if ((window as any).jspdf && (window as any).jspdf.jsPDF) {
+          jsPDF = (window as any).jspdf.jsPDF;
+          console.log("Using window.jspdf.jsPDF");
+        } else {
+          // Try to load script dynamically
+          console.log("Attempting to load jsPDF dynamically...");
+          const script = document.createElement("script");
+          script.src = "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js";
+          script.onload = () => {
+            console.log("jsPDF loaded dynamically");
+            setTimeout(() => downloadPDF(), 100); // Retry after script loads
+          };
+          script.onerror = () => {
+            alert("Gagal memuat library jsPDF. Periksa koneksi internet Anda.");
+          };
+          document.head.appendChild(script);
+          return;
         }
-      );
 
-      // PDF Header
-      doc.setFontSize(16);
-      doc.text("Laporan Data Absensi Siswa", 14, 15);
+        const doc = new jsPDF();
 
-      let yPosition = 25;
+        // Filter data berdasarkan bulan, tanggal, mapel, dan kelas ✅ TAMBAHKAN matchClass
+        const filteredData: Attendance[] = attendanceData.filter(
+          (attendance: Attendance) => {
+            let matchMonth = true;
+            let matchDate = true;
+            let matchMapel = true;
+            let matchClass = true; // ✅ TAMBAHKAN INI
 
-      // Month filter information
-      if (selectedMonth) {
+            // Filter berdasarkan bulan
+            if (selectedMonth) {
+              const [day, month, year] = attendance.date.split("/");
+              matchMonth = month === selectedMonth;
+            }
+
+            // Filter berdasarkan tanggal
+            if (selectedDate) {
+              const [day, month, year] = attendance.date.split("/");
+              const attendanceDate = `${year}-${month.padStart(
+                2,
+                "0"
+              )}-${day.padStart(2, "0")}`;
+              matchDate = attendanceDate === selectedDate;
+            }
+
+            // Filter berdasarkan mata pelajaran
+            if (selectedMapel) {
+              matchMapel = attendance.mapel === selectedMapel;
+            }
+
+            // ✅ TAMBAHKAN INI: Filter berdasarkan kelas
+            if (selectedClass) {
+              matchClass = attendance.class === selectedClass;
+            }
+
+            return matchMonth && matchDate && matchMapel && matchClass; // ✅ TAMBAHKAN matchClass
+          }
+        );
+
+        // PDF Header
+        doc.setFontSize(16);
+        doc.text("Laporan Data Absensi Siswa", 14, 15);
+
+        let yPosition = 25;
+
+        // Month filter information
+        if (selectedMonth) {
+          const monthNames = [
+            "Januari",
+            "Februari",
+            "Maret",
+            "April",
+            "Mei",
+            "Juni",
+            "Juli",
+            "Agustus",
+            "September",
+            "Oktober",
+            "November",
+            "Desember",
+          ];
+          const monthName = monthNames[parseInt(selectedMonth) - 1];
+          doc.setFontSize(12);
+          doc.text(`Bulan: ${monthName}`, 14, yPosition);
+          yPosition += 10;
+        }
+
+        // Date filter information
+        if (selectedDate) {
+          const [year, month, day] = selectedDate.split("-");
+          doc.setFontSize(12);
+          doc.text(`Tanggal: ${day}/${month}/${year}`, 14, yPosition);
+          yPosition += 10;
+        }
+
+        // ✅ TAMBAHKAN INI: Class filter information
+        if (selectedClass) {
+          doc.setFontSize(12);
+          doc.text(`Kelas: ${selectedClass}`, 14, yPosition);
+          yPosition += 10;
+        }
+
+        // Print date
+        doc.setFontSize(10);
+        doc.text(
+          `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")}`,
+          14,
+          yPosition
+        );
+        yPosition += 10;
+
+        // Helper function to load image from URL with multiple attempts
+        const loadImageFromUrl = (url: string): Promise<string> => {
+          return new Promise(async (resolve, reject) => {
+            console.log("Original URL:", url);
+
+            // Try multiple URL formats for Google Drive
+            const urlsToTry: string[] = [];
+
+            if (url.includes("drive.google.com/file/d/")) {
+              const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+              if (match && match[1]) {
+                const fileId = match[1];
+                urlsToTry.push(
+                  `https://lh3.googleusercontent.com/d/${fileId}=w1000?authuser=0`,
+                  `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`,
+                  `https://drive.google.com/uc?export=view&id=${fileId}`,
+                  `https://drive.google.com/uc?id=${fileId}`,
+                  url // original URL as last resort
+                );
+              }
+            } else {
+              urlsToTry.push(url);
+            }
+
+            console.log("URLs to try:", urlsToTry);
+
+            // Try each URL until one works
+            for (let i = 0; i < urlsToTry.length; i++) {
+              const tryUrl = urlsToTry[i];
+              console.log(`Trying URL ${i + 1}/${urlsToTry.length}:`, tryUrl);
+
+              try {
+                const result = await new Promise<string>((resolve, reject) => {
+                  const img = new Image();
+                  img.crossOrigin = "anonymous";
+
+                  const timeout = setTimeout(() => {
+                    reject(new Error("Image load timeout"));
+                  }, 10000); // 10 second timeout
+
+                  img.onload = () => {
+                    clearTimeout(timeout);
+                    try {
+                      const canvas = document.createElement("canvas");
+                      const ctx = canvas.getContext("2d");
+                      if (!ctx) {
+                        reject(new Error("Cannot get canvas context"));
+                        return;
+                      }
+
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      ctx.drawImage(img, 0, 0);
+                      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+                      resolve(dataUrl);
+                    } catch (error) {
+                      reject(error);
+                    }
+                  };
+
+                  img.onerror = (error) => {
+                    clearTimeout(timeout);
+                    reject(new Error(`Failed to load image: ${error}`));
+                  };
+
+                  img.src = tryUrl;
+                });
+
+                console.log("Successfully loaded image from:", tryUrl);
+                resolve(result);
+                return; // Success, exit the loop
+              } catch (error) {
+                console.log(`Failed to load from ${tryUrl}:`, error);
+                // Continue to next URL
+              }
+            }
+
+            // If all URLs failed
+            console.log("All URLs failed for:", url);
+            reject(new Error("Failed to load image from all attempted URLs"));
+          });
+        };
+
+        // Preprocess images - convert all images to base64 with timeout
+        console.log("Starting image preprocessing...");
+        const processImageWithTimeout = async (
+          attendance: Attendance,
+          timeout: number = 15000
+        ): Promise<ProcessedAttendance> => {
+          if (!attendance.photo) {
+            return { ...attendance, processedPhoto: null };
+          }
+
+          return Promise.race([
+            (async (): Promise<ProcessedAttendance> => {
+              try {
+                console.log(
+                  `Processing image for ${attendance.name}:`,
+                  attendance.photo
+                );
+                let processedPhoto: string | null = attendance.photo;
+
+                if (
+                  attendance.photo &&
+                  attendance.photo.startsWith("https://")
+                ) {
+                  processedPhoto = await loadImageFromUrl(attendance.photo);
+                  console.log(
+                    "Successfully processed image for:",
+                    attendance.name
+                  );
+                } else if (
+                  attendance.photo &&
+                  !attendance.photo.startsWith("data:image")
+                ) {
+                  processedPhoto = await loadImageFromUrl(attendance.photo);
+                }
+
+                return { ...attendance, processedPhoto };
+              } catch (error) {
+                console.log(
+                  "Failed to process image for:",
+                  attendance.name,
+                  error
+                );
+                return { ...attendance, processedPhoto: null };
+              }
+            })(),
+            new Promise<ProcessedAttendance>((_, reject) =>
+              setTimeout(
+                () => reject(new Error("Image processing timeout")),
+                timeout
+              )
+            ),
+          ]).catch((error): ProcessedAttendance => {
+            console.log(
+              "Image processing timed out or failed for:",
+              attendance.name,
+              error
+            );
+            return { ...attendance, processedPhoto: null };
+          });
+        };
+
+        // Process images with limited concurrency
+        const processedData: ProcessedAttendance[] = [];
+        const batchSize = 3; // Process 3 images at a time
+
+        for (let i = 0; i < filteredData.length; i += batchSize) {
+          const batch = filteredData.slice(i, i + batchSize);
+          console.log(
+            `Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(
+              filteredData.length / batchSize
+            )}`
+          );
+
+          const batchResults = await Promise.all(
+            batch.map((attendance: Attendance) =>
+              processImageWithTimeout(attendance)
+            )
+          );
+
+          processedData.push(...batchResults);
+
+          // Small delay between batches
+          if (i + batchSize < filteredData.length) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+
+        console.log(
+          "Image preprocessing completed. Results:",
+          processedData.map((d) => ({
+            name: d.name,
+            hasPhoto: !!d.photo,
+            processedSuccessfully: !!d.processedPhoto,
+          }))
+        );
+
+        // Prepare table data with processed photos
+        const tableData: (string | number)[][] = processedData.map(
+          (attendance: ProcessedAttendance) => {
+            let photoStatus = "Tidak ada foto";
+            if (attendance.processedPhoto) {
+              photoStatus = "Ada foto";
+            }
+            return [
+              attendance.date,
+              attendance.time,
+              attendance.class,
+              attendance.name,
+              attendance.nisn,
+              photoStatus,
+              attendance.status,
+              attendance.mapel || "Belum dipilih", // 👈 TAMBAHKAN INI
+            ];
+          }
+        );
+
+        // Create table using autoTable with custom didDrawCell for photos
+        doc.autoTable({
+          head: [
+            [
+              "Tanggal",
+              "Jam",
+              "Kelas",
+              "Nama",
+              "NISN",
+              "Foto",
+              "Status",
+              "Mapel",
+            ],
+          ],
+          body: tableData,
+          startY: yPosition + 5,
+          styles: {
+            fontSize: 9,
+            cellPadding: 3,
+            minCellHeight: 20,
+          },
+          headStyles: {
+            fillColor: [59, 130, 246],
+            textColor: 255,
+            fontStyle: "bold",
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          columnStyles: {
+            0: { cellWidth: 22 }, // Tanggal
+            1: { cellWidth: 18 }, // Jam
+            2: { cellWidth: 18 }, // Kelas
+            3: { cellWidth: 35 }, // Nama
+            4: { cellWidth: 25 }, // NISN
+            5: { cellWidth: 30 }, // Foto
+            6: { cellWidth: 20 }, // Status
+            7: { cellWidth: 25 }, // 👈 Mapel
+          },
+          didDrawCell: (data: any) => {
+            // Add photo if available - HANYA untuk baris data, BUKAN header
+            if (
+              data.column.index === 5 &&
+              data.row.index >= 0 &&
+              data.section === "body"
+            ) {
+              // Photo column - hanya untuk body, bukan header
+              const attendance = processedData[data.row.index];
+
+              if (attendance && attendance.processedPhoto) {
+                try {
+                  // Clear the cell text first (remove "Ada foto" text)
+                  doc.setFillColor(255, 255, 255); // White background
+                  if (data.row.index % 2 !== 0) {
+                    doc.setFillColor(248, 250, 252); // Alternate row color
+                  }
+                  doc.rect(
+                    data.cell.x,
+                    data.cell.y,
+                    data.cell.width,
+                    data.cell.height,
+                    "F"
+                  );
+
+                  // Add only the image, no text
+                  const imgWidth = 15;
+                  const imgHeight = 15;
+                  const x = data.cell.x + (data.cell.width - imgWidth) / 2; // Center horizontally
+                  const y = data.cell.y + (data.cell.height - imgHeight) / 2; // Center vertically
+
+                  doc.addImage(
+                    attendance.processedPhoto,
+                    "JPEG",
+                    x,
+                    y,
+                    imgWidth,
+                    imgHeight
+                  );
+                } catch (error) {
+                  console.log("Error adding image to PDF:", error);
+                  doc.setFontSize(8);
+                  doc.text("Error foto", data.cell.x + 2, data.cell.y + 10);
+                }
+              } else {
+                // Only show text when there's no photo
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text("Tidak ada", data.cell.x + 2, data.cell.y + 10);
+                doc.setTextColor(0, 0, 0); // Reset color
+              }
+            }
+            // TIDAK menambahkan gambar untuk header (data.section === 'head')
+          },
+        });
+
+        // Statistics below table
+        const totalData = filteredData.length;
+        const hadirCount = filteredData.filter(
+          (a) => a.status === "Hadir"
+        ).length;
+        const alphaCount = filteredData.filter(
+          (a) => a.status === "Alpha"
+        ).length;
+        const izinCount = filteredData.filter(
+          (a) => a.status === "Izin"
+        ).length;
+        const sakitCount = filteredData.filter(
+          (a) => a.status === "Sakit"
+        ).length;
+
+        const finalY = (doc as any).lastAutoTable.finalY + 10;
+        doc.setFontSize(12);
+        doc.text("Ringkasan:", 14, finalY);
+        doc.setFontSize(10);
+        doc.text(`Total Data: ${totalData}`, 14, finalY + 10);
+        doc.text(`Hadir: ${hadirCount}`, 14, finalY + 20);
+        doc.text(`Alpha: ${alphaCount}`, 60, finalY + 20);
+        doc.text(`Izin: ${izinCount}`, 100, finalY + 20);
+        doc.text(`Sakit: ${sakitCount}`, 140, finalY + 20);
+
+        // Generate filename
         const monthNames = [
           "Januari",
           "Februari",
@@ -2795,768 +3175,411 @@ const App: React.FC = () => {
           "November",
           "Desember",
         ];
-        const monthName = monthNames[parseInt(selectedMonth) - 1];
-        doc.setFontSize(12);
-        doc.text(`Bulan: ${monthName}`, 14, yPosition);
-        yPosition += 10;
-      }
 
-      // Date filter information
-      if (selectedDate) {
-        const [year, month, day] = selectedDate.split("-");
-        doc.setFontSize(12);
-        doc.text(`Tanggal: ${day}/${month}/${year}`, 14, yPosition);
-        yPosition += 10;
-      }
+        let fileName = `Absensi_${new Date().getFullYear()}.pdf`;
 
-      // ✅ TAMBAHKAN INI: Class filter information
-      if (selectedClass) {
-        doc.setFontSize(12);
-        doc.text(`Kelas: ${selectedClass}`, 14, yPosition);
-        yPosition += 10;
-      }
-
-      // Print date
-      doc.setFontSize(10);
-      doc.text(
-        `Tanggal Cetak: ${new Date().toLocaleDateString("id-ID")}`,
-        14,
-        yPosition
-      );
-      yPosition += 10;
-
-      // Helper function to load image from URL with multiple attempts
-      const loadImageFromUrl = (url: string): Promise<string> => {
-        return new Promise(async (resolve, reject) => {
-          console.log("Original URL:", url);
-
-          // Try multiple URL formats for Google Drive
-          const urlsToTry: string[] = [];
-
-          if (url.includes("drive.google.com/file/d/")) {
-            const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-              const fileId = match[1];
-              urlsToTry.push(
-                `https://lh3.googleusercontent.com/d/${fileId}=w1000?authuser=0`,
-                `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`,
-                `https://drive.google.com/uc?export=view&id=${fileId}`,
-                `https://drive.google.com/uc?id=${fileId}`,
-                url // original URL as last resort
-              );
-            }
-          } else {
-            urlsToTry.push(url);
-          }
-
-          console.log("URLs to try:", urlsToTry);
-
-          // Try each URL until one works
-          for (let i = 0; i < urlsToTry.length; i++) {
-            const tryUrl = urlsToTry[i];
-            console.log(`Trying URL ${i + 1}/${urlsToTry.length}:`, tryUrl);
-
-            try {
-              const result = await new Promise<string>((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-
-                const timeout = setTimeout(() => {
-                  reject(new Error("Image load timeout"));
-                }, 10000); // 10 second timeout
-
-                img.onload = () => {
-                  clearTimeout(timeout);
-                  try {
-                    const canvas = document.createElement("canvas");
-                    const ctx = canvas.getContext("2d");
-                    if (!ctx) {
-                      reject(new Error("Cannot get canvas context"));
-                      return;
-                    }
-
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-                    resolve(dataUrl);
-                  } catch (error) {
-                    reject(error);
-                  }
-                };
-
-                img.onerror = (error) => {
-                  clearTimeout(timeout);
-                  reject(new Error(`Failed to load image: ${error}`));
-                };
-
-                img.src = tryUrl;
-              });
-
-              console.log("Successfully loaded image from:", tryUrl);
-              resolve(result);
-              return; // Success, exit the loop
-            } catch (error) {
-              console.log(`Failed to load from ${tryUrl}:`, error);
-              // Continue to next URL
-            }
-          }
-
-          // If all URLs failed
-          console.log("All URLs failed for:", url);
-          reject(new Error("Failed to load image from all attempted URLs"));
-        });
-      };
-
-      // Preprocess images - convert all images to base64 with timeout
-      console.log("Starting image preprocessing...");
-      const processImageWithTimeout = async (
-        attendance: Attendance,
-        timeout: number = 15000
-      ): Promise<ProcessedAttendance> => {
-        if (!attendance.photo) {
-          return { ...attendance, processedPhoto: null };
+        if (selectedDate) {
+          const [year, month, day] = selectedDate.split("-");
+          fileName = `Absensi_${day}-${month}-${year}.pdf`;
+        } else if (selectedMonth) {
+          const monthName = monthNames[parseInt(selectedMonth) - 1];
+          fileName = `Absensi_${monthName}_${new Date().getFullYear()}.pdf`;
         }
 
-        return Promise.race([
-          (async (): Promise<ProcessedAttendance> => {
-            try {
-              console.log(
-                `Processing image for ${attendance.name}:`,
-                attendance.photo
-              );
-              let processedPhoto: string | null = attendance.photo;
-
-              if (
-                attendance.photo &&
-                attendance.photo.startsWith("https://")
-              ) {
-                processedPhoto = await loadImageFromUrl(attendance.photo);
-                console.log(
-                  "Successfully processed image for:",
-                  attendance.name
-                );
-              } else if (
-                attendance.photo &&
-                !attendance.photo.startsWith("data:image")
-              ) {
-                processedPhoto = await loadImageFromUrl(attendance.photo);
-              }
-
-              return { ...attendance, processedPhoto };
-            } catch (error) {
-              console.log(
-                "Failed to process image for:",
-                attendance.name,
-                error
-              );
-              return { ...attendance, processedPhoto: null };
-            }
-          })(),
-          new Promise<ProcessedAttendance>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("Image processing timeout")),
-              timeout
-            )
-          ),
-        ]).catch((error): ProcessedAttendance => {
-          console.log(
-            "Image processing timed out or failed for:",
-            attendance.name,
-            error
-          );
-          return { ...attendance, processedPhoto: null };
-        });
-      };
-
-      // Process images with limited concurrency
-      const processedData: ProcessedAttendance[] = [];
-      const batchSize = 3; // Process 3 images at a time
-
-      for (let i = 0; i < filteredData.length; i += batchSize) {
-        const batch = filteredData.slice(i, i + batchSize);
-        console.log(
-          `Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(
-            filteredData.length / batchSize
-          )}`
-        );
-
-        const batchResults = await Promise.all(
-          batch.map((attendance: Attendance) =>
-            processImageWithTimeout(attendance)
-          )
-        );
-
-        processedData.push(...batchResults);
-
-        // Small delay between batches
-        if (i + batchSize < filteredData.length) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
+        // Download PDF
+        doc.save(fileName);
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+        alert("Terjadi kesalahan saat membuat PDF. Silakan coba lagi.");
+      } finally {
+        // Kembalikan teks dan status tombol ke kondisi awal
+        button.disabled = false;
+        button.innerHTML = originalButtonText;
       }
+    };
 
-      console.log(
-        "Image preprocessing completed. Results:",
-        processedData.map((d) => ({
-          name: d.name,
-          hasPhoto: !!d.photo,
-          processedSuccessfully: !!d.processedPhoto,
-        }))
-      );
+    return (
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Data Absensi
+              </h2>
+              <div className="flex items-center gap-4 mt-2">
+                {lastRefresh && (
+                  <p className="text-xs text-gray-500">
+                    Terakhir diperbarui:{" "}
+                    {lastRefresh.toLocaleTimeString("id-ID")}
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      isPolling ? "bg-green-400" : "bg-gray-400"
+                    }`}
+                  ></div>
+                  <span className="text-xs text-gray-600">
+                    {isPolling ? "Auto-update aktif" : "Auto-update nonaktif"}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-      // Prepare table data with processed photos
-      const tableData: (string | number)[][] = processedData.map(
-        (attendance: ProcessedAttendance) => {
-          let photoStatus = "Tidak ada foto";
-          if (attendance.processedPhoto) {
-            photoStatus = "Ada foto";
-          }
-          return [
-            attendance.date,
-            attendance.time,
-            attendance.class,
-            attendance.name,
-            attendance.nisn,
-            photoStatus,
-            attendance.status,
-            attendance.mapel || "Belum dipilih", // 👈 TAMBAHKAN INI
-          ];
-        }
-      );
+            <div className="flex gap-2">
+              <button
+                onClick={() => fetchAttendanceData(true)}
+                disabled={loading}
+                className="hidden px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
+              >
+                {loading ? "Memuat..." : "Refresh"}
+              </button>
 
-      // Create table using autoTable with custom didDrawCell for photos
-      doc.autoTable({
-        head: [
-          [
-            "Tanggal",
-            "Jam",
-            "Kelas",
-            "Nama",
-            "NISN",
-            "Foto",
-            "Status",
-            "Mapel",
-          ],
-        ],
-        body: tableData,
-        startY: yPosition + 5,
-        styles: {
-          fontSize: 9,
-          cellPadding: 3,
-          minCellHeight: 20,
-        },
-        headStyles: {
-          fillColor: [59, 130, 246],
-          textColor: 255,
-          fontStyle: "bold",
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
-        },
-        columnStyles: {
-          0: { cellWidth: 22 }, // Tanggal
-          1: { cellWidth: 18 }, // Jam
-          2: { cellWidth: 18 }, // Kelas
-          3: { cellWidth: 35 }, // Nama
-          4: { cellWidth: 25 }, // NISN
-          5: { cellWidth: 30 }, // Foto
-          6: { cellWidth: 20 }, // Status
-          7: { cellWidth: 25 }, // 👈 Mapel
-        },
-        didDrawCell: (data: any) => {
-          // Add photo if available - HANYA untuk baris data, BUKAN header
-          if (
-            data.column.index === 5 &&
-            data.row.index >= 0 &&
-            data.section === "body"
-          ) {
-            // Photo column - hanya untuk body, bukan header
-            const attendance = processedData[data.row.index];
+              {/* Tombol-tombol lainnya tetap sama */}
+              <button
+                onClick={() => setShowClearAttendanceModal(true)}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Hapus Semua Data Absensi Siswa
+              </button>
 
-            if (attendance && attendance.processedPhoto) {
-              try {
-                // Clear the cell text first (remove "Ada foto" text)
-                doc.setFillColor(255, 255, 255); // White background
-                if (data.row.index % 2 !== 0) {
-                  doc.setFillColor(248, 250, 252); // Alternate row color
-                }
-                doc.rect(
-                  data.cell.x,
-                  data.cell.y,
-                  data.cell.width,
-                  data.cell.height,
-                  "F"
-                );
+              <button
+                id="downloadPdfButton"
+                onClick={downloadPDF}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
+                disabled={loading || attendanceData.length === 0}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Download PDF
+              </button>
+            </div>
+          </div>
 
-                // Add only the image, no text
-                const imgWidth = 15;
-                const imgHeight = 15;
-                const x = data.cell.x + (data.cell.width - imgWidth) / 2; // Center horizontally
-                const y = data.cell.y + (data.cell.height - imgHeight) / 2; // Center vertically
+          {/* Filter Section ✅ UBAH GRID JADI 4 KOLOM, TAMBAHKAN FILTER KELAS */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+            {" "}
+            {/* ✅ Ubah md:grid-cols-3 jadi 4 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter per Bulan
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Semua Bulan</option>
+                {[
+                  "Januari",
+                  "Februari",
+                  "Maret",
+                  "April",
+                  "Mei",
+                  "Juni",
+                  "Juli",
+                  "Agustus",
+                  "September",
+                  "Oktober",
+                  "November",
+                  "Desember",
+                ].map((month, index) => {
+                  const monthValue = String(index + 1).padStart(2, "0");
+                  return (
+                    <option key={monthValue} value={monthValue}>
+                      {month}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter per Tanggal
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER MATA PELAJARAN (sudah ada, tapi tetap) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter Mata Pelajaran
+              </label>
+              <select
+                value={selectedMapel} // ← Menggunakan state yang sama
+                onChange={(e) => setSelectedMapel(e.target.value)} // ← ✅ INI YANG HILANG DAN HARUS DITAMBAHKAN!
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={mapelData.length === 0}
+              >
+                <option value="">Semua Mata Pelajaran</option>
+                {mapelData.map((mapel, index) => (
+                  <option key={index} value={mapel.mapel}>
+                    {mapel.mapel}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER KELAS */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Filter Kelas
+              </label>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Semua Kelas</option>
+                {uniqueClasses.map((cls, index) => (
+                  <option key={index} value={cls}>
+                    {cls}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-                doc.addImage(
-                  attendance.processedPhoto,
-                  "JPEG",
-                  x,
-                  y,
-                  imgWidth,
-                  imgHeight
-                );
-              } catch (error) {
-                console.log("Error adding image to PDF:", error);
-                doc.setFontSize(8);
-                doc.text("Error foto", data.cell.x + 2, data.cell.y + 10);
-              }
-            } else {
-              // Only show text when there's no photo
-              doc.setFontSize(8);
-              doc.setTextColor(128, 128, 128);
-              doc.text("Tidak ada", data.cell.x + 2, data.cell.y + 10);
-              doc.setTextColor(0, 0, 0); // Reset color
-            }
-          }
-          // TIDAK menambahkan gambar untuk header (data.section === 'head')
-        },
-      });
+          {(selectedMonth ||
+            selectedDate ||
+            selectedMapel ||
+            selectedClass) && ( // ✅ TAMBAHKAN selectedClass ke kondisi
+            <div className="mt-3">
+              <button
+                onClick={() => {
+                  setSelectedMonth("");
+                  setSelectedDate("");
+                  setSelectedMapel(""); // ✅ TAMBAHKAN ini untuk reset mapel
+                  setSelectedClass(""); // ✅ TAMBAHKAN INI untuk reset kelas
+                }}
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Hapus Semua Filter
+              </button>
+            </div>
+          )}
+        </div>
 
-      // Statistics below table
-      const totalData = filteredData.length;
-      const hadirCount = filteredData.filter(
-        (a) => a.status === "Hadir"
-      ).length;
-      const alphaCount = filteredData.filter(
-        (a) => a.status === "Alpha"
-      ).length;
-      const izinCount = filteredData.filter(
-        (a) => a.status === "Izin"
-      ).length;
-      const sakitCount = filteredData.filter(
-        (a) => a.status === "Sakit"
-      ).length;
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Memuat data...</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-700">
+              <thead className="text-xs uppercase bg-gray-200">
+                <tr>
+                  <th className="px-4 py-2">Tanggal</th>
+                  <th className="px-4 py-2">Jam</th>
+                  <th className="px-4 py-2">Kelas</th>
+                  <th className="px-4 py-2">Nama</th>
+                  <th className="px-4 py-2">NISN</th>
+                  <th className="px-4 py-2">Foto</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Mapel</th> {/* 👈 TAMBAHKAN INI */}
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceData.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={8} // ✅ Tetap 8 (karena kolom: Tanggal, Jam, Kelas, Nama, NISN, Foto, Status, Mapel)
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Tidak ada data absensi
+                    </td>
+                  </tr>
+                ) : (
+                  attendanceData
+                    .filter((attendance: Attendance) => {
+                      let matchMonth = true;
+                      let matchDate = true;
+                      let matchMapel = true; // 👈 TAMBAHKAN INI: Variabel untuk filter mapel
+                      let matchClass = true; // ✅ TAMBAHKAN INI: Variabel untuk filter kelas
 
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(12);
-      doc.text("Ringkasan:", 14, finalY);
-      doc.setFontSize(10);
-      doc.text(`Total Data: ${totalData}`, 14, finalY + 10);
-      doc.text(`Hadir: ${hadirCount}`, 14, finalY + 20);
-      doc.text(`Alpha: ${alphaCount}`, 60, finalY + 20);
-      doc.text(`Izin: ${izinCount}`, 100, finalY + 20);
-      doc.text(`Sakit: ${sakitCount}`, 140, finalY + 20);
+                      if (selectedMonth) {
+                        const [day, month, year] = attendance.date.split("/");
+                        matchMonth = month === selectedMonth;
+                      }
 
-      // Generate filename
-      const monthNames = [
-        "Januari",
-        "Februari",
-        "Maret",
-        "April",
-        "Mei",
-        "Juni",
-        "Juli",
-        "Agustus",
-        "September",
-        "Oktober",
-        "November",
-        "Desember",
-      ];
+                      if (selectedDate) {
+                        const [day, month, year] = attendance.date.split("/");
+                        const attendanceDate = `${year}-${month.padStart(
+                          2,
+                          "0"
+                        )}-${day.padStart(2, "0")}`;
+                        matchDate = attendanceDate === selectedDate;
+                      }
 
-      let fileName = `Absensi_${new Date().getFullYear()}.pdf`;
+                      // 👈 TAMBAHKAN INI: Filter berdasarkan mapel
+                      if (selectedMapel) {
+                        matchMapel = attendance.mapel === selectedMapel; // Bandingkan dengan attendance.mapel
+                      }
 
-      if (selectedDate) {
-        const [year, month, day] = selectedDate.split("-");
-        fileName = `Absensi_${day}-${month}-${year}.pdf`;
-      } else if (selectedMonth) {
-        const monthName = monthNames[parseInt(selectedMonth) - 1];
-        fileName = `Absensi_${monthName}_${new Date().getFullYear()}.pdf`;
-      }
+                      // ✅ TAMBAHKAN INI: Filter berdasarkan kelas
+                      if (selectedClass) {
+                        matchClass = attendance.class === selectedClass;
+                      }
 
-      // Download PDF
-      doc.save(fileName);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Terjadi kesalahan saat membuat PDF. Silakan coba lagi.");
-    } finally {
-      // Kembalikan teks dan status tombol ke kondisi awal
-      button.disabled = false;
-      button.innerHTML = originalButtonText;
-    }
-  };
+                      return (
+                        matchMonth && matchDate && matchMapel && matchClass
+                      ); // ✅ TAMBAHKAN matchClass ke kondisi return
+                    })
+                    .map((attendance: Attendance, index: number) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-2">{attendance.date}</td>
+                        <td className="px-4 py-2">{attendance.time}</td>
+                        <td className="px-4 py-2">{attendance.class}</td>
+                        <td className="px-4 py-2">{attendance.name}</td>
+                        <td className="px-4 py-2">{attendance.nisn}</td>
+                        <td className="px-4 py-2">
+                          {attendance.photo ? (
+                            attendance.photo.startsWith("https://") ? (
+                              attendance.photo.includes("drive.google.com") ? (
+                                <div className="flex flex-col items-center">
+                                  <img
+                                    src={convertGoogleDriveUrl(
+                                      attendance.photo
+                                    )}
+                                    alt="Foto siswa"
+                                    className="w-12 h-12 object-cover rounded-full border-2 border-gray-300 mb-1"
+                                    onError={(e) => {
+                                      const target =
+                                        e.target as HTMLImageElement;
+                                      if (attendance.photo) {
+                                        target.src = convertGoogleDriveUrlAlt(
+                                          attendance.photo
+                                        );
+                                        target.onerror = () => {
+                                          target.style.display = "none";
+                                          const parent = target.parentElement;
+                                          if (parent) {
+                                            const span =
+                                              document.createElement("span");
+                                            span.className =
+                                              "text-xs text-gray-500";
+                                            span.textContent = "Preview gagal";
+                                            parent.appendChild(span);
+                                          }
+                                        };
+                                      }
+                                    }}
+                                  />
+                                  <a
+                                    href={attendance.photo}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 underline text-xs"
+                                  >
+                                    Buka Foto
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center">
+                                  <img
+                                    src={attendance.photo}
+                                    alt="Foto siswa"
+                                    className="w-12 h-12 object-cover rounded-full border-2 border-gray-300 mb-1"
+                                  />
+                                  <a
+                                    href={attendance.photo}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 underline text-xs"
+                                  >
+                                    Link
+                                  </a>
+                                </div>
+                              )
+                            ) : (
+                              <img
+                                src={attendance.photo}
+                                alt="Foto siswa"
+                                className="w-12 h-12 object-cover rounded-full border-2 border-gray-300"
+                              />
+                            )
+                          ) : (
+                            <span className="text-gray-500">
+                              Tidak ada foto
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              attendance.status === "Hadir"
+                                ? "bg-green-100 text-green-800"
+                                : attendance.status === "Alpha"
+                                ? "bg-red-100 text-red-800"
+                                : attendance.status === "Izin"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {attendance.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2">
+                          {attendance?.mapel || "Belum dipilih"}
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-  return (
-    <div className="bg-white shadow-lg rounded-lg p-6">
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              Data Absensi
-            </h2>
-            <div className="flex items-center gap-4 mt-2">
-              {lastRefresh && (
-                <p className="text-xs text-gray-500">
-                  Terakhir diperbarui:{" "}
-                  {lastRefresh.toLocaleTimeString("id-ID")}
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isPolling ? "bg-green-400" : "bg-gray-400"
-                  }`}
-                ></div>
-                <span className="text-xs text-gray-600">
-                  {isPolling ? "Auto-update aktif" : "Auto-update nonaktif"}
-                </span>
+        {/* Modal Konfirmasi Hapus Semua Absensi */}
+        {showClearAttendanceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">
+                Konfirmasi Hapus Semua Data Absensi
+              </h2>
+              <p className="mb-4">
+                Apakah Anda yakin ingin menghapus semua data absensi siswa?
+                Tindakan ini tidak dapat dibatalkan.
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={async () => {
+                    await handleClearAttendance(); // Jalankan penghapusan jika klik Ya
+                    setShowClearAttendanceModal(false); // Tutup modal setelah selesai
+                  }}
+                  disabled={loading} // Gunakan state loading existing untuk disable tombol saat proses
+                  className="flex-1 bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50"
+                >
+                  {loading ? "⏳ Menghapus..." : "Ya, Hapus"}
+                </button>
+                <button
+                  onClick={() => setShowClearAttendanceModal(false)} // Tutup modal jika klik Tidak
+                  className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                >
+                  Tidak
+                </button>
               </div>
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchAttendanceData(true)}
-              disabled={loading}
-              className="hidden px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
-            >
-              {loading ? "Memuat..." : "Refresh"}
-            </button>
-
-            {/* Tombol-tombol lainnya tetap sama */}
-            <button
-              onClick={() => setShowClearAttendanceModal(true)}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-            >
-              Hapus Semua Data Absensi Siswa
-            </button>
-
-            <button
-              id="downloadPdfButton"
-              onClick={downloadPDF}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
-              disabled={loading || attendanceData.length === 0}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              Download PDF
-            </button>
-          </div>
-        </div>
-
-        {/* Filter Section ✅ UBAH GRID JADI 4 KOLOM, TAMBAHKAN FILTER KELAS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4"> {/* ✅ Ubah md:grid-cols-3 jadi 4 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter per Bulan
-            </label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Bulan</option>
-              {[
-                "Januari",
-                "Februari",
-                "Maret",
-                "April",
-                "Mei",
-                "Juni",
-                "Juli",
-                "Agustus",
-                "September",
-                "Oktober",
-                "November",
-                "Desember",
-              ].map((month, index) => {
-                const monthValue = String(index + 1).padStart(2, "0");
-                return (
-                  <option key={monthValue} value={monthValue}>
-                    {month}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter per Tanggal
-            </label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER MATA PELAJARAN (sudah ada, tapi tetap) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter Mata Pelajaran
-            </label>
-            <select
-              value={selectedMapel} // ← Menggunakan state yang sama
-              onChange={(e) => setSelectedMapel(e.target.value)} // ← ✅ INI YANG HILANG DAN HARUS DITAMBAHKAN!
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={mapelData.length === 0}
-            >
-              <option value="">Semua Mata Pelajaran</option>
-              {mapelData.map((mapel, index) => (
-                <option key={index} value={mapel.mapel}>
-                  {mapel.mapel}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER KELAS */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Filter Kelas
-            </label>
-            <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Semua Kelas</option>
-              {uniqueClasses.map((cls, index) => (
-                <option key={index} value={cls}>
-                  {cls}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {(selectedMonth || selectedDate || selectedMapel || selectedClass) && ( // ✅ TAMBAHKAN selectedClass ke kondisi
-          <div className="mt-3">
-            <button
-              onClick={() => {
-                setSelectedMonth("");
-                setSelectedDate("");
-                setSelectedMapel(""); // ✅ TAMBAHKAN ini untuk reset mapel
-                setSelectedClass(""); // ✅ TAMBAHKAN INI untuk reset kelas
-              }}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
-            >
-              Hapus Semua Filter
-            </button>
-          </div>
         )}
       </div>
-
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2 text-gray-600">Memuat data...</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left text-gray-700">
-            <thead className="text-xs uppercase bg-gray-200">
-              <tr>
-                <th className="px-4 py-2">Tanggal</th>
-                <th className="px-4 py-2">Jam</th>
-                <th className="px-4 py-2">Kelas</th>
-                <th className="px-4 py-2">Nama</th>
-                <th className="px-4 py-2">NISN</th>
-                <th className="px-4 py-2">Foto</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Mapel</th> {/* 👈 TAMBAHKAN INI */}
-              </tr>
-            </thead>
-            <tbody>
-              {attendanceData.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8} // ✅ Tetap 8 (karena kolom: Tanggal, Jam, Kelas, Nama, NISN, Foto, Status, Mapel)
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    Tidak ada data absensi
-                  </td>
-                </tr>
-              ) : (
-                attendanceData
-                  .filter((attendance: Attendance) => {
-                    let matchMonth = true;
-                    let matchDate = true;
-                    let matchMapel = true; // 👈 TAMBAHKAN INI: Variabel untuk filter mapel
-                    let matchClass = true; // ✅ TAMBAHKAN INI: Variabel untuk filter kelas
-
-                    if (selectedMonth) {
-                      const [day, month, year] = attendance.date.split("/");
-                      matchMonth = month === selectedMonth;
-                    }
-
-                    if (selectedDate) {
-                      const [day, month, year] = attendance.date.split("/");
-                      const attendanceDate = `${year}-${month.padStart(
-                        2,
-                        "0"
-                      )}-${day.padStart(2, "0")}`;
-                      matchDate = attendanceDate === selectedDate;
-                    }
-
-                    // 👈 TAMBAHKAN INI: Filter berdasarkan mapel
-                    if (selectedMapel) {
-                      matchMapel = attendance.mapel === selectedMapel; // Bandingkan dengan attendance.mapel
-                    }
-
-                    // ✅ TAMBAHKAN INI: Filter berdasarkan kelas
-                    if (selectedClass) {
-                      matchClass = attendance.class === selectedClass;
-                    }
-
-                    return matchMonth && matchDate && matchMapel && matchClass; // ✅ TAMBAHKAN matchClass ke kondisi return
-                  })
-                  .map((attendance: Attendance, index: number) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2">{attendance.date}</td>
-                      <td className="px-4 py-2">{attendance.time}</td>
-                      <td className="px-4 py-2">{attendance.class}</td>
-                      <td className="px-4 py-2">{attendance.name}</td>
-                      <td className="px-4 py-2">{attendance.nisn}</td>
-                      <td className="px-4 py-2">
-                        {attendance.photo ? (
-                          attendance.photo.startsWith("https://") ? (
-                            attendance.photo.includes("drive.google.com") ? (
-                              <div className="flex flex-col items-center">
-                                <img
-                                  src={convertGoogleDriveUrl(
-                                    attendance.photo
-                                  )}
-                                  alt="Foto siswa"
-                                  className="w-12 h-12 object-cover rounded-full border-2 border-gray-300 mb-1"
-                                  onError={(e) => {
-                                    const target =
-                                      e.target as HTMLImageElement;
-                                    if (attendance.photo) {
-                                      target.src = convertGoogleDriveUrlAlt(
-                                        attendance.photo
-                                      );
-                                      target.onerror = () => {
-                                        target.style.display = "none";
-                                        const parent = target.parentElement;
-                                        if (parent) {
-                                          const span =
-                                            document.createElement("span");
-                                          span.className =
-                                            "text-xs text-gray-500";
-                                          span.textContent = "Preview gagal";
-                                          parent.appendChild(span);
-                                        }
-                                      };
-                                    }
-                                  }}
-                                />
-                                <a
-                                  href={attendance.photo}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline text-xs"
-                                >
-                                  Buka Foto
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                <img
-                                  src={attendance.photo}
-                                  alt="Foto siswa"
-                                  className="w-12 h-12 object-cover rounded-full border-2 border-gray-300 mb-1"
-                                />
-                                <a
-                                  href={attendance.photo}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline text-xs"
-                                >
-                                  Link
-                                </a>
-                              </div>
-                            )
-                          ) : (
-                            <img
-                              src={attendance.photo}
-                              alt="Foto siswa"
-                              className="w-12 h-12 object-cover rounded-full border-2 border-gray-300"
-                            />
-                          )
-                        ) : (
-                          <span className="text-gray-500">
-                            Tidak ada foto
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            attendance.status === "Hadir"
-                              ? "bg-green-100 text-green-800"
-                              : attendance.status === "Alpha"
-                              ? "bg-red-100 text-red-800"
-                              : attendance.status === "Izin"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-purple-100 text-purple-800"
-                          }`}
-                        >
-                          {attendance.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">
-                        {attendance?.mapel || "Belum dipilih"}
-                      </td>
-                    </tr>
-                  ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Modal Konfirmasi Hapus Semua Absensi */}
-      {showClearAttendanceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">
-              Konfirmasi Hapus Semua Data Absensi
-            </h2>
-            <p className="mb-4">
-              Apakah Anda yakin ingin menghapus semua data absensi siswa?
-              Tindakan ini tidak dapat dibatalkan.
-            </p>
-            <div className="flex space-x-2">
-              <button
-                onClick={async () => {
-                  await handleClearAttendance(); // Jalankan penghapusan jika klik Ya
-                  setShowClearAttendanceModal(false); // Tutup modal setelah selesai
-                }}
-                disabled={loading} // Gunakan state loading existing untuk disable tombol saat proses
-                className="flex-1 bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50"
-              >
-                {loading ? "⏳ Menghapus..." : "Ya, Hapus"}
-              </button>
-              <button
-                onClick={() => setShowClearAttendanceModal(false)} // Tutup modal jika klik Tidak
-                className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
-              >
-                Tidak
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+    );
+  };
 
   const renderStudentsPage = () => (
     <div className="bg-white shadow-lg rounded-lg p-6">
@@ -4607,16 +4630,18 @@ const App: React.FC = () => {
   );
 
   return (
-  <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
-    <div className="relative py-3 sm:max-w-4xl sm:mx-auto w-full max-w-4xl mx-auto px-4">
-      {!isLoggedIn ? (
-        <>
-          <h1 className="text-center text-2xl font-semibold text-gray-900 mb-6">
-            {isFromPKBM ? "Aplikasi Absensi Siswa" : "Aplikasi Pengelolaan Data Kehadiran Siswa"}
-          </h1>
-          {renderLoginPage()}
-        </>
-      ) : (
+    <div className="min-h-screen bg-gray-100 py-6 flex flex-col justify-center sm:py-12">
+      <div className="relative py-3 sm:max-w-4xl sm:mx-auto w-full max-w-4xl mx-auto px-4">
+        {!isLoggedIn ? (
+          <>
+            <h1 className="text-center text-2xl font-semibold text-gray-900 mb-6">
+              {isFromPKBM
+                ? "Aplikasi Absensi Siswa"
+                : "Aplikasi Pengelolaan Data Kehadiran Siswa"}
+            </h1>
+            {renderLoginPage()}
+          </>
+        ) : (
           <>
             <div className="flex justify-center mb-6">
               <div className="bg-white rounded-lg shadow-lg p-1 flex relative">
