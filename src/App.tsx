@@ -2374,11 +2374,13 @@ const App: React.FC = () => {
 
     return (
       <div className="bg-white shadow-lg rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg">
-            Buka Menu
-          </button>
-          <div className="flex items-center space-x-4">
+        {/* Hapus tombol Buka Menu, tapi tetap field tanggal dengan mb-4 untuk spacing */}
+        <div className="mb-4">
+          {" "}
+          {/* ✅ EDIT BARU: Ubah dari flex justify-between jadi mb-4 sederhana */}
+          <div className="flex items-center space-x-4 justify-end">
+            {" "}
+            {/* ✅ EDIT BARU: Tambah justify-end agar tanggal tetap di kanan jika perlu */}
             <label className="text-sm font-medium text-gray-700">
               Tanggal:
             </label>
@@ -2474,24 +2476,30 @@ const App: React.FC = () => {
               return (
                 <div
                   key={student.nisn}
-                  className="flex justify-between items-center border-b py-2"
+                  className="flex justify-between items-center border-b py-2" // Tetap flex justify-between
                 >
-                  <div>
-                    <p className="font-semibold">{student.name}</p>
-                    <p className="text-sm">
-                      Kelas {student.class} - NISN: {student.nisn}
-                    </p>
+                  <div className="flex-1 pr-4 min-w-0">
+                    {" "}
+                    {/* ✅ EDIT: Tambah flex-1 pr-4 min-w-0 untuk ratakan kiri dan cegah overflow */}
+                    <p className="text-xs font-semibold ">{student.name}</p>{" "}
+                    {/* ✅ EDIT: Tambah truncate agar nama panjang dipotong dengan ... */}
+                    <p className="text-sm">Kelas {student.class}</p>{" "}
+                    {/* ✅ EDIT BARU: Pisah kelas ke baris sendiri */}
+                    <p className="text-sm">NISN: {student.nisn}</p>
                     {tempStatus && (
-                      <p className="text-xs text-blue-600">
+                      <p className="text-xs text-blue-600 truncate">
                         Status dipilih: {tempStatus}
                       </p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1 sm:space-x-2 flex-shrink-0">
+                    {" "}
+                    {/* ✅ EDIT: space-x-1 untuk mobile, sm:space-x-2 untuk desktop; flex-shrink-0 agar tidak menyusut */}
                     <button
                       onClick={() => handleSelectStatus(student, "Hadir")}
                       disabled={!!absensiHariIni[student.nisn]}
-                      className={`px-3 py-1 rounded-lg ${
+                      className={`px-2 py-1 rounded-lg text-xs sm:text-sm sm:px-3 ${
+                        /* ✅ EDIT: px-2 py-1 text-xs untuk mobile, sm:px-3 sm:text-sm untuk desktop */
                         tempStatus === "Hadir"
                           ? "bg-green-600 text-white"
                           : getStatusByDateAndNISN(
@@ -2500,14 +2508,14 @@ const App: React.FC = () => {
                             ) === "Hadir"
                           ? "bg-green-600 text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      } transition duration-200`}
+                      } transition duration-200 whitespace-nowrap`} /* ✅ EDIT: Tambah whitespace-nowrap agar tombol tidak wrap */
                     >
                       Hadir
                     </button>
                     <button
                       onClick={() => handleSelectStatus(student, "Izin")}
                       disabled={!!absensiHariIni[student.nisn]}
-                      className={`px-3 py-1 rounded-lg ${
+                      className={`px-2 py-1 rounded-lg text-xs sm:text-sm sm:px-3 ${
                         tempStatus === "Izin"
                           ? "bg-yellow-600 text-white"
                           : getStatusByDateAndNISN(
@@ -2516,14 +2524,14 @@ const App: React.FC = () => {
                             ) === "Izin"
                           ? "bg-yellow-600 text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      } transition duration-200`}
+                      } transition duration-200 whitespace-nowrap`}
                     >
                       Izin
                     </button>
                     <button
                       onClick={() => handleSelectStatus(student, "Sakit")}
                       disabled={!!absensiHariIni[student.nisn]}
-                      className={`px-3 py-1 rounded-lg ${
+                      className={`px-2 py-1 rounded-lg text-xs sm:text-sm sm:px-3 ${
                         tempStatus === "Sakit"
                           ? "bg-purple-600 text-white"
                           : getStatusByDateAndNISN(
@@ -2532,14 +2540,14 @@ const App: React.FC = () => {
                             ) === "Sakit"
                           ? "bg-purple-600 text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      } transition duration-200`}
+                      } transition duration-200 whitespace-nowrap`}
                     >
                       Sakit
                     </button>
                     <button
                       onClick={() => handleSelectStatus(student, "Alpha")}
                       disabled={!!absensiHariIni[student.nisn]}
-                      className={`px-3 py-1 rounded-lg ${
+                      className={`px-2 py-1 rounded-lg text-xs sm:text-sm sm:px-3 ${
                         tempStatus === "Alpha"
                           ? "bg-red-600 text-white"
                           : getStatusByDateAndNISN(
@@ -2548,7 +2556,7 @@ const App: React.FC = () => {
                             ) === "Alpha"
                           ? "bg-red-600 text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      } transition duration-200`}
+                      } transition duration-200 whitespace-nowrap`}
                     >
                       Alpha
                     </button>
@@ -3246,11 +3254,11 @@ const App: React.FC = () => {
               <button
                 id="downloadPdfButton"
                 onClick={downloadPDF}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-sm rounded-lg flex items-center gap-2 transition-colors duration-200" // ✅ EDIT BARU: px-3 py-1 text-sm untuk perkecil tombol
                 disabled={loading || attendanceData.length === 0}
               >
                 <svg
-                  className="w-4 h-4"
+                  className="w-3 h-3" // ✅ EDIT BARU: w-3 h-3 untuk perkecil ikon SVG
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -3315,7 +3323,6 @@ const App: React.FC = () => {
                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            {/* ✅ TAMBAHKAN INI — DROPDOWN FILTER MATA PELAJARAN (sudah ada, tapi tetap) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Filter Mata Pelajaran
