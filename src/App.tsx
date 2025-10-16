@@ -4,7 +4,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbxrWMAooEIk2UlXJCcSw0Smm7fvsyeHyccfD3hCIfXgw6-7kOHkQUW1Nj5befWdBm1f/exec";
+  "https://script.google.com/macros/s/AKfycbyjh_08Y5s-bvDN5hJo2WQGv2R_-MVas1nA_lsp6gdS02YMGG6aj2yBXr5gusuZlA/exec";
 
 interface Attendance {
   id: number;
@@ -169,6 +169,7 @@ const App: React.FC = () => {
   const [showEditAttendanceModal, setShowEditAttendanceModal] = useState(false);
   const [editAttendanceForm, setEditAttendanceForm] = useState({
     status: "",
+    photoBase64: null as string | null, // ✅ TAMBAHKAN INI
     error: "",
     loading: false,
   });
@@ -2259,6 +2260,7 @@ const App: React.FC = () => {
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              capture="environment"
               onChange={handleFileSelect}
               style={{ display: "none" }}
             />
@@ -2604,6 +2606,7 @@ const App: React.FC = () => {
                 ref={teacherPhotoInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleTeacherFileSelect}
                 style={{ display: "none" }}
               />
@@ -2681,11 +2684,11 @@ const App: React.FC = () => {
     e: React.ChangeEvent<HTMLSelectElement>
   ) => {
     const { value } = e.target;
-    setEditAttendanceForm({
+    setEditAttendanceForm((prev) => ({
+      ...prev,
       status: value,
       error: "",
-      loading: false,
-    });
+    }));
   };
 
   const handleEditAttendance = async () => {
@@ -2723,16 +2726,21 @@ const App: React.FC = () => {
         // Update local state
         setAttendanceData((prev) =>
           prev.map((att) =>
-            att.nisn === editAttendance.nisn &&
-            att.date === editAttendance.date &&
-            att.mapel === editAttendance.mapel
+            att.nisn === editAttendance!.nisn &&
+            att.date === editAttendance!.date &&
+            att.mapel === editAttendance!.mapel
               ? { ...att, status: editAttendanceForm.status }
               : att
           )
         );
         setShowEditAttendanceModal(false);
         setEditAttendance(null);
-        setEditAttendanceForm({ status: "", error: "", loading: false });
+        setEditAttendanceForm({
+          status: "",
+          photoBase64: null,
+          error: "",
+          loading: false,
+        });
         alert("Status kehadiran berhasil diperbarui!");
       } else {
         throw new Error("Unexpected response type");
@@ -3626,6 +3634,7 @@ const App: React.FC = () => {
                               setEditAttendance(attendance);
                               setEditAttendanceForm({
                                 status: attendance.status,
+                                photoBase64: null,
                                 error: "",
                                 loading: false,
                               });
@@ -3699,13 +3708,20 @@ const App: React.FC = () => {
                     {editAttendance?.mapel || "Belum dipilih"}
                   </p>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status Kehadiran
                   </label>
                   <select
                     value={editAttendanceForm.status}
-                    onChange={handleEditAttendanceInputChange}
+                    onChange={(e) =>
+                      setEditAttendanceForm((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                        error: "",
+                      }))
+                    }
                     className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Pilih Status</option>
@@ -3715,14 +3731,127 @@ const App: React.FC = () => {
                     <option value="Alpha">Alpha</option>
                   </select>
                 </div>
+
+                {/* ✅ TAMPILKAN INPUT FOTO HANYA JIKA STATUS = "Hadir" */}
+                {editAttendanceForm.status === "Hadir" && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Foto Absensi (Opsional)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const base64 = await compressImage(file, 0.8);
+                            setEditAttendanceForm((prev) => ({
+                              ...prev,
+                              photoBase64: base64,
+                            }));
+                          } catch (err) {
+                            setEditAttendanceForm((prev) => ({
+                              ...prev,
+                              error: "Gagal memproses gambar",
+                            }));
+                          }
+                        }
+                      }}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                    />
+                    {editAttendanceForm.photoBase64 && (
+                      <p className="text-xs text-green-600">
+                        Foto siap dikirim
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {editAttendanceForm.error && (
                   <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
                     {editAttendanceForm.error}
                   </div>
                 )}
+
                 <div className="flex space-x-2">
                   <button
-                    onClick={handleEditAttendance}
+                    onClick={async () => {
+                      if (!editAttendanceForm.status) {
+                        setEditAttendanceForm((prev) => ({
+                          ...prev,
+                          error: "Status harus dipilih",
+                        }));
+                        return;
+                      }
+
+                      setEditAttendanceForm((prev) => ({
+                        ...prev,
+                        loading: true,
+                      }));
+
+                      try {
+                        const payload: any = {
+                          action: "editAttendance",
+                          date: editAttendance!.date,
+                          nisn: editAttendance!.nisn,
+                          mapel: editAttendance!.mapel,
+                          newStatus: editAttendanceForm.status,
+                        };
+
+                        // ✅ KIRIM FOTO HANYA JIKA STATUS = "Hadir"
+                        if (
+                          editAttendanceForm.status === "Hadir" &&
+                          editAttendanceForm.photoBase64
+                        ) {
+                          payload.photo = editAttendanceForm.photoBase64;
+                        }
+
+                        const response = await fetch(ENDPOINT, {
+                          method: "POST",
+                          mode: "no-cors",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(payload),
+                        });
+
+                        if (response.type === "opaque") {
+                          // Update local state
+                          setAttendanceData((prev) =>
+                            prev.map((att) =>
+                              att.nisn === editAttendance!.nisn &&
+                              att.date === editAttendance!.date &&
+                              att.mapel === editAttendance!.mapel
+                                ? {
+                                    ...att,
+                                    status: editAttendanceForm.status,
+                                    photo: editAttendanceForm.photoBase64
+                                      ? URL.createObjectURL(new Blob())
+                                      : "",
+                                  }
+                                : att
+                            )
+                          );
+                          setShowEditAttendanceModal(false);
+                          setEditAttendance(null);
+                          setEditAttendanceForm({
+                            status: "",
+                            photoBase64: null,
+                            error: "",
+                            loading: false,
+                          });
+                          alert("Status kehadiran berhasil diperbarui!");
+                        } else {
+                          throw new Error("Unexpected response");
+                        }
+                      } catch (error: any) {
+                        setEditAttendanceForm((prev) => ({
+                          ...prev,
+                          error: "Gagal menyimpan: " + error.message,
+                          loading: false,
+                        }));
+                      }
+                    }}
                     disabled={editAttendanceForm.loading}
                     className="flex-1 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
                   >
@@ -3734,6 +3863,7 @@ const App: React.FC = () => {
                       setEditAttendance(null);
                       setEditAttendanceForm({
                         status: "",
+                        photoBase64: null,
                         error: "",
                         loading: false,
                       });
