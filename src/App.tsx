@@ -2252,7 +2252,6 @@ const App: React.FC = () => {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleFileSelect}
               style={{ display: "none" }}
             />
