@@ -2260,7 +2260,6 @@ const App: React.FC = () => {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleFileSelect}
               style={{ display: "none" }}
             />
@@ -2606,7 +2605,6 @@ const App: React.FC = () => {
                 ref={teacherPhotoInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handleTeacherFileSelect}
                 style={{ display: "none" }}
               />
@@ -3741,7 +3739,6 @@ const App: React.FC = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
