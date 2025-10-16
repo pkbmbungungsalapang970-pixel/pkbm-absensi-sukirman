@@ -4,7 +4,7 @@ import "jspdf-autotable";
 import * as XLSX from "xlsx";
 
 const ENDPOINT =
-  "https://script.google.com/macros/s/AKfycbxeanvJQxAvvDR6xTe51mtzhexRcrCYoU-bbXV_ioy4X9vUdYK06XLI3sanyIVdVRSH/exec";
+  "https://script.google.com/macros/s/AKfycbxrWMAooEIk2UlXJCcSw0Smm7fvsyeHyccfD3hCIfXgw6-7kOHkQUW1Nj5befWdBm1f/exec";
 
 interface Attendance {
   id: number;
@@ -165,6 +165,13 @@ const App: React.FC = () => {
   const [deleteStudentNisn, setDeleteStudentNisn] = useState<string | null>(
     null
   );
+  const [editAttendance, setEditAttendance] = useState<Attendance | null>(null);
+  const [showEditAttendanceModal, setShowEditAttendanceModal] = useState(false);
+  const [editAttendanceForm, setEditAttendanceForm] = useState({
+    status: "",
+    error: "",
+    loading: false,
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -2670,6 +2677,76 @@ const App: React.FC = () => {
     );
   };
 
+  const handleEditAttendanceInputChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const { value } = e.target;
+    setEditAttendanceForm({
+      status: value,
+      error: "",
+      loading: false,
+    });
+  };
+
+  const handleEditAttendance = async () => {
+    if (!editAttendance || !editAttendanceForm.status) {
+      setEditAttendanceForm({
+        ...editAttendanceForm,
+        error: "Status harus dipilih",
+      });
+      return;
+    }
+
+    setEditAttendanceForm({
+      ...editAttendanceForm,
+      loading: true,
+      error: "",
+    });
+
+    try {
+      const response = await fetch(ENDPOINT, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "editAttendance",
+          date: editAttendance.date,
+          nisn: editAttendance.nisn,
+          mapel: editAttendance.mapel,
+          newStatus: editAttendanceForm.status,
+        }),
+      });
+
+      if (response.type === "opaque") {
+        // Update local state
+        setAttendanceData((prev) =>
+          prev.map((att) =>
+            att.nisn === editAttendance.nisn &&
+            att.date === editAttendance.date &&
+            att.mapel === editAttendance.mapel
+              ? { ...att, status: editAttendanceForm.status }
+              : att
+          )
+        );
+        setShowEditAttendanceModal(false);
+        setEditAttendance(null);
+        setEditAttendanceForm({ status: "", error: "", loading: false });
+        alert("Status kehadiran berhasil diperbarui!");
+      } else {
+        throw new Error("Unexpected response type");
+      }
+    } catch (error: any) {
+      console.error("Error editing attendance:", error);
+      setEditAttendanceForm({
+        ...editAttendanceForm,
+        error: `Gagal memperbarui status: ${error.message}`,
+        loading: false,
+      });
+    }
+  };
+
   const renderDataPage = () => {
     // Fungsi untuk mengkonversi Google Drive link ke direct download link
     const convertGoogleDriveUrl = (url: string): string => {
@@ -3396,14 +3473,15 @@ const App: React.FC = () => {
                   <th className="px-4 py-2">NISN</th>
                   <th className="px-4 py-2">Foto</th>
                   <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Mapel</th> {/* 👈 TAMBAHKAN INI */}
+                  <th className="px-4 py-2">Mapel</th>
+                  <th className="px-4 py-2">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {attendanceData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8} // ✅ Tetap 8 (karena kolom: Tanggal, Jam, Kelas, Nama, NISN, Foto, Status, Mapel)
+                      colSpan={9} // ✅ Tetap 8 (karena kolom: Tanggal, Jam, Kelas, Nama, NISN, Foto, Status, Mapel)
                       className="px-4 py-8 text-center text-gray-500"
                     >
                       Tidak ada data absensi
@@ -3542,6 +3620,22 @@ const App: React.FC = () => {
                         <td className="px-4 py-2">
                           {attendance?.mapel || "Belum dipilih"}
                         </td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => {
+                              setEditAttendance(attendance);
+                              setEditAttendanceForm({
+                                status: attendance.status,
+                                error: "",
+                                loading: false,
+                              });
+                              setShowEditAttendanceModal(true);
+                            }}
+                            className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition duration-200 text-xs"
+                          >
+                            Edit Status
+                          </button>
+                        </td>
                       </tr>
                     ))
                 )}
@@ -3578,6 +3672,77 @@ const App: React.FC = () => {
                 >
                   Tidak
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* 👇 BARU: Modal Edit Status Kehadiran */}
+        {showEditAttendanceModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-semibold mb-4">
+                Edit Status Kehadiran
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">
+                    <strong>Nama:</strong> {editAttendance?.name}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>NISN:</strong> {editAttendance?.nisn}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Tanggal:</strong> {editAttendance?.date}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Mapel:</strong>{" "}
+                    {editAttendance?.mapel || "Belum dipilih"}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status Kehadiran
+                  </label>
+                  <select
+                    value={editAttendanceForm.status}
+                    onChange={handleEditAttendanceInputChange}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Pilih Status</option>
+                    <option value="Hadir">Hadir</option>
+                    <option value="Izin">Izin</option>
+                    <option value="Sakit">Sakit</option>
+                    <option value="Alpha">Alpha</option>
+                  </select>
+                </div>
+                {editAttendanceForm.error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
+                    {editAttendanceForm.error}
+                  </div>
+                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleEditAttendance}
+                    disabled={editAttendanceForm.loading}
+                    className="flex-1 bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+                  >
+                    {editAttendanceForm.loading ? "⏳ Menyimpan..." : "Simpan"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditAttendanceModal(false);
+                      setEditAttendance(null);
+                      setEditAttendanceForm({
+                        status: "",
+                        error: "",
+                        loading: false,
+                      });
+                    }}
+                    className="flex-1 bg-gray-300 text-gray-700 p-2 rounded-lg hover:bg-gray-400 transition duration-200"
+                  >
+                    Batal
+                  </button>
+                </div>
               </div>
             </div>
           </div>
